@@ -6,6 +6,7 @@ using AplosGateway.Core.Security;
 using AplosGateway.Infrastructure.Authentication;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
+using Xunit;
 
 namespace AplosGateway.Tests.Authentication;
 
@@ -24,13 +25,24 @@ public sealed class AplosAuthenticationServiceTests
                     "https://app.aplos.com/hermes/api/v1/auth/test-client-id",
                     request.RequestUri?.ToString());
 
-                return new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = new StringContent(
-                        $"\"{encryptedToken}\"",
-                        Encoding.UTF8,
-                        "application/json")
-                };
+                var response =
+                    new HttpResponseMessage(HttpStatusCode.OK);
+
+                response.Content = new StringContent(
+                    """
+                    {
+                      "version": "1",
+                      "status": "success",
+                      "data": {
+                        "expires": "2099-01-01T00:00:00Z",
+                        "token": "encrypted-token"
+                      }
+                    }
+                    """,
+                    Encoding.UTF8,
+                    "application/json");
+
+                return response;
             });
 
         using var httpClient = new HttpClient(handler);
@@ -43,12 +55,14 @@ public sealed class AplosAuthenticationServiceTests
         using var cache = new MemoryCache(
             new MemoryCacheOptions());
 
-        var options = Options.Create(new AplosOptions
-        {
-            BaseUrl = "https://app.aplos.com/hermes/api/v1",
-            ClientId = "test-client-id",
-            PrivateKey = "test-private-key"
-        });
+        var options = Options.Create(
+            new AplosOptions
+            {
+                BaseUrl =
+                    "https://app.aplos.com/hermes/api/v1",
+                ClientId = "test-client-id",
+                PrivateKey = "test-private-key"
+            });
 
         var service = new AplosAuthenticationService(
             httpClient,
@@ -56,8 +70,11 @@ public sealed class AplosAuthenticationServiceTests
             cache,
             options);
 
-        var firstResult = await service.GetAccessTokenAsync();
-        var secondResult = await service.GetAccessTokenAsync();
+        var firstResult =
+            await service.GetAccessTokenAsync();
+
+        var secondResult =
+            await service.GetAccessTokenAsync();
 
         Assert.Equal(decryptedToken, firstResult);
         Assert.Equal(decryptedToken, secondResult);
@@ -82,12 +99,14 @@ public sealed class AplosAuthenticationServiceTests
         using var cache = new MemoryCache(
             new MemoryCacheOptions());
 
-        var options = Options.Create(new AplosOptions
-        {
-            BaseUrl = "https://app.aplos.com/hermes/api/v1",
-            ClientId = "",
-            PrivateKey = "private-key"
-        });
+        var options = Options.Create(
+            new AplosOptions
+            {
+                BaseUrl =
+                    "https://app.aplos.com/hermes/api/v1",
+                ClientId = "",
+                PrivateKey = "private-key"
+            });
 
         var service = new AplosAuthenticationService(
             httpClient,
@@ -102,7 +121,9 @@ public sealed class AplosAuthenticationServiceTests
     private sealed class StubHttpMessageHandler
         : HttpMessageHandler
     {
-        private readonly Func<HttpRequestMessage, HttpResponseMessage> _handler;
+        private readonly Func<
+            HttpRequestMessage,
+            HttpResponseMessage> _handler;
 
         public int CallCount { get; private set; }
 
@@ -137,8 +158,12 @@ public sealed class AplosAuthenticationServiceTests
             string expectedPrivateKey,
             string result)
         {
-            _expectedEncryptedToken = expectedEncryptedToken;
-            _expectedPrivateKey = expectedPrivateKey;
+            _expectedEncryptedToken =
+                expectedEncryptedToken;
+
+            _expectedPrivateKey =
+                expectedPrivateKey;
+
             _result = result;
         }
 

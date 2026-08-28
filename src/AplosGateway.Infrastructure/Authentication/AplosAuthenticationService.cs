@@ -1,6 +1,6 @@
-using System.Net.Http.Json;
-using AplosGateway.Core.Configuration;
+using System.Text.Json;
 using AplosGateway.Core.Authentication;
+using AplosGateway.Core.Configuration;
 using AplosGateway.Core.Security;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
@@ -49,8 +49,26 @@ public sealed class AplosAuthenticationService
 
         response.EnsureSuccessStatusCode();
 
-        var encryptedToken = await response.Content.ReadFromJsonAsync<string>(
-            cancellationToken: cancellationToken);
+        var rawResponse = await response.Content.ReadAsStringAsync(
+            cancellationToken);
+
+        using var jsonDocument = JsonDocument.Parse(rawResponse);
+
+        var root = jsonDocument.RootElement;
+
+        if (!root.TryGetProperty("data", out var data))
+        {
+            throw new InvalidOperationException(
+                "Aplos authentication response did not contain data.");
+        }
+
+        if (!data.TryGetProperty("token", out var tokenElement))
+        {
+            throw new InvalidOperationException(
+                "Aplos authentication response did not contain a token.");
+        }
+
+        var encryptedToken = tokenElement.GetString();
 
         if (string.IsNullOrWhiteSpace(encryptedToken))
         {
@@ -61,6 +79,12 @@ public sealed class AplosAuthenticationService
         var accessToken = _tokenDecryptor.Decrypt(
             encryptedToken,
             _options.PrivateKey);
+
+        if (string.IsNullOrWhiteSpace(accessToken))
+        {
+            throw new InvalidOperationException(
+                "The decrypted Aplos access token was empty.");
+        }
 
         _cache.Set(
             CacheKey,
