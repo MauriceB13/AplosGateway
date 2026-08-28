@@ -20,6 +20,9 @@ public static class ServiceCollectionExtensions
         services.Configure<SecurityOptions>(
             configuration.GetSection(SecurityOptions.SectionName));
 
+        services.Configure<AplosOptions>(
+            configuration.GetSection(AplosOptions.SectionName));
+
         services.AddMemoryCache();
 
         return services;
