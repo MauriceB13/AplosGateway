@@ -24,6 +24,8 @@ public static class ApplicationBuilderExtensions
 
         app.UseHttpsRedirection();
 
+        app.UseMiddleware<ApiKeyMiddleware>();
+
         app.UseAuthorization();
 
         app.MapControllers();
