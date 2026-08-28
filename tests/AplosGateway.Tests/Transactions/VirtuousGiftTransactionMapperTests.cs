@@ -67,7 +67,7 @@ public sealed class VirtuousGiftTransactionMapperTests
             depositLine.Account.AccountNumber);
 
         Assert.Equal(
-            100,
+            492387,
             depositLine.Fund.Id);
 
         var incomeLine =
@@ -82,7 +82,7 @@ public sealed class VirtuousGiftTransactionMapperTests
             incomeLine.Account.AccountNumber);
 
         Assert.Equal(
-            100,
+            492387,
             incomeLine.Fund.Id);
 
         Assert.Equal(

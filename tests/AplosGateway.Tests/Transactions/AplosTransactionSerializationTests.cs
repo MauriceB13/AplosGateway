@@ -31,7 +31,7 @@ public sealed class AplosTransactionSerializationTests
                     },
                     Fund = new AplosFund
                     {
-                        Id = 100
+                        Id = 492387
                     }
                 },
                 new AplosTransactionLine
@@ -43,7 +43,7 @@ public sealed class AplosTransactionSerializationTests
                     },
                     Fund = new AplosFund
                     {
-                        Id = 100
+                        Id = 492387
                     }
                 }
             ]
@@ -93,7 +93,7 @@ public sealed class AplosTransactionSerializationTests
                 .GetInt32());
 
         Assert.Equal(
-            100,
+            492387,
             lines[0]
                 .GetProperty("fund")
                 .GetProperty("id")
@@ -111,7 +111,7 @@ public sealed class AplosTransactionSerializationTests
                 .GetInt32());
 
         Assert.Equal(
-            100,
+            492387,
             lines[1]
                 .GetProperty("fund")
                 .GetProperty("id")

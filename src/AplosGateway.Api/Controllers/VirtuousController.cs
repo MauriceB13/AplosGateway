@@ -1,3 +1,4 @@
+using AplosGateway.Core.Transactions;
 using AplosGateway.Core.Virtuous;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,11 +10,14 @@ public sealed class VirtuousController
     : ControllerBase
 {
     private readonly IVirtuousGiftService _giftService;
+    private readonly IVirtuousGiftTransactionMapper _mapper;
 
     public VirtuousController(
-        IVirtuousGiftService giftService)
+        IVirtuousGiftService giftService,
+        IVirtuousGiftTransactionMapper mapper)
     {
         _giftService = giftService;
+        _mapper = mapper;
     }
 
     [HttpPost("gift")]
@@ -29,5 +33,15 @@ public sealed class VirtuousController
         return Content(
             result,
             "application/json");
+    }
+
+    [HttpPost("gift/preview")]
+    public ActionResult<AplosTransactionRequest> PreviewGift(
+        [FromBody] VirtuousGift gift)
+    {
+        var transaction =
+            _mapper.Map(gift);
+
+        return Ok(transaction);
     }
 }

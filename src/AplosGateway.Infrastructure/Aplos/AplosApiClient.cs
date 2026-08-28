@@ -108,9 +108,17 @@ public sealed class AplosApiClient : IAplosApiClient
             request,
             cancellationToken);
 
-    response.EnsureSuccessStatusCode();
+    var responseContent =
+        await response.Content.ReadAsStringAsync(
+            cancellationToken);
 
-    return await response.Content.ReadAsStringAsync(
-        cancellationToken);
+    if (!response.IsSuccessStatusCode)
+    {
+        throw new InvalidOperationException(
+            $"Aplos returned HTTP {(int)response.StatusCode} " +
+            $"({response.StatusCode}). Response: {responseContent}");
+    }
+
+    return responseContent;
 }
 }

@@ -7,7 +7,7 @@ public sealed class VirtuousGiftTransactionMapper
 {
     private const int DepositAccountNumber = 20114;
     private const int IncomeAccountNumber = 41025;
-    private const int FundId = 100;
+    private const int FundId = 492387;
 
     public AplosTransactionRequest Map(
         VirtuousGift gift)
