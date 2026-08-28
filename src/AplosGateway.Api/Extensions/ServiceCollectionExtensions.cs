@@ -1,4 +1,6 @@
 using AplosGateway.Api.Configuration;
+using AplosGateway.Core.Security;
+using AplosGateway.Infrastructure.Security;
 
 namespace AplosGateway.Api.Extensions;
 
@@ -25,6 +27,7 @@ public static class ServiceCollectionExtensions
 
         services.AddMemoryCache();
 
+        services.AddSingleton<IAplosTokenDecryptor, RsaAplosTokenDecryptor>();
         return services;
     }
 }
