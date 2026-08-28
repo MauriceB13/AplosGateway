@@ -1,0 +1,6 @@
+@AplosGateway.Api_HostAddress = http://localhost:5131
+
+GET {{AplosGateway.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
