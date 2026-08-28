@@ -4,6 +4,10 @@ using AplosGateway.Infrastructure.Security;
 using AplosGateway.Core.Authentication;
 using AplosGateway.Infrastructure.Authentication;
 using AplosGateway.Core.Configuration;
+using AplosGateway.Core.Aplos;
+using AplosGateway.Infrastructure.Aplos;
+using AplosGateway.Core.Transactions;
+using AplosGateway.Infrastructure.Transactions;
 
 namespace AplosGateway.Api.Extensions;
 
@@ -35,6 +39,14 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient<
     IAplosAuthenticationService,
     AplosAuthenticationService>();
+
+    services.AddHttpClient<
+    IAplosApiClient,
+    AplosApiClient>();
+
+    services.AddScoped<
+    IAplosTransactionService,
+    AplosTransactionService>();
 
         return services;
     }
