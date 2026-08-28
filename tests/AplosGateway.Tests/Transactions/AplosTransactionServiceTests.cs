@@ -1,7 +1,9 @@
 using System.Text.Json;
 using AplosGateway.Core.Aplos;
+using AplosGateway.Core.Configuration;
 using AplosGateway.Core.Transactions;
 using AplosGateway.Infrastructure.Transactions;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace AplosGateway.Tests.Transactions;
@@ -13,8 +15,16 @@ public sealed class AplosTransactionServiceTests
     {
         var apiClient = new StubAplosApiClient();
 
+        var options = Options.Create(
+            new AplosOptions
+            {
+                AllowTransactionPosting = true
+            });
+
         var service =
-            new AplosTransactionService(apiClient);
+            new AplosTransactionService(
+                apiClient,
+                options);
 
         var request =
             new AplosTransactionRequest
@@ -128,11 +138,55 @@ public sealed class AplosTransactionServiceTests
         var apiClient =
             new StubAplosApiClient();
 
+        var options = Options.Create(
+            new AplosOptions
+            {
+                AllowTransactionPosting = true
+            });
+
         var service =
-            new AplosTransactionService(apiClient);
+            new AplosTransactionService(
+                apiClient,
+                options);
 
         await Assert.ThrowsAsync<ArgumentNullException>(
             () => service.CreateTransactionAsync(null!));
+
+        Assert.Equal(
+            0,
+            apiClient.PostCallCount);
+    }
+
+    [Fact]
+    public async Task CreateTransactionAsync_DoesNotPostWhenPostingIsDisabled()
+    {
+        var apiClient =
+            new StubAplosApiClient();
+
+        var options = Options.Create(
+            new AplosOptions
+            {
+                AllowTransactionPosting = false
+            });
+
+        var service =
+            new AplosTransactionService(
+                apiClient,
+                options);
+
+        var request =
+            new AplosTransactionRequest
+            {
+                Note = "Should not post"
+            };
+
+        var exception =
+            await Assert.ThrowsAsync<InvalidOperationException>(
+                () => service.CreateTransactionAsync(request));
+
+        Assert.Equal(
+            "Aplos transaction posting is disabled.",
+            exception.Message);
 
         Assert.Equal(
             0,

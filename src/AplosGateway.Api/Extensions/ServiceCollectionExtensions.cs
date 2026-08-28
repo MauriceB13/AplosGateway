@@ -8,6 +8,8 @@ using AplosGateway.Core.Aplos;
 using AplosGateway.Infrastructure.Aplos;
 using AplosGateway.Core.Transactions;
 using AplosGateway.Infrastructure.Transactions;
+using AplosGateway.Core.Virtuous;
+using AplosGateway.Infrastructure.Virtuous;
 
 namespace AplosGateway.Api.Extensions;
 
@@ -47,6 +49,14 @@ public static class ServiceCollectionExtensions
     services.AddScoped<
     IAplosTransactionService,
     AplosTransactionService>();
+
+    services.AddSingleton<
+    IVirtuousGiftTransactionMapper,
+    VirtuousGiftTransactionMapper>();
+
+    services.AddScoped<
+    IVirtuousGiftService,
+    VirtuousGiftService>();
 
         return services;
     }

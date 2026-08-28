@@ -10,4 +10,6 @@ public sealed class AplosOptions
     public string ClientId { get; set; } = string.Empty;
 
     public string PrivateKey { get; set; } = string.Empty;
+
+    public bool AllowTransactionPosting { get; set; } = false;
 }

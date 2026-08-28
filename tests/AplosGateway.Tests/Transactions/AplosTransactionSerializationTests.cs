@@ -1,6 +1,8 @@
 using System.Text.Json;
 using AplosGateway.Core.Transactions;
 using Xunit;
+using AplosGateway.Core.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace AplosGateway.Tests.Transactions;
 
