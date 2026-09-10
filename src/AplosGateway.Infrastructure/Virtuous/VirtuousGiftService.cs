@@ -8,13 +8,16 @@ public sealed class VirtuousGiftService
 {
     private readonly IVirtuousGiftTransactionMapper _mapper;
     private readonly IAplosTransactionService _transactionService;
+    private readonly IVirtuousGiftIdempotencyStore _idempotencyStore;
 
     public VirtuousGiftService(
         IVirtuousGiftTransactionMapper mapper,
-        IAplosTransactionService transactionService)
+        IAplosTransactionService transactionService,
+        IVirtuousGiftIdempotencyStore idempotencyStore)
     {
         _mapper = mapper;
         _transactionService = transactionService;
+        _idempotencyStore = idempotencyStore;
     }
 
     public async Task<string> ProcessGiftAsync(
@@ -23,11 +26,16 @@ public sealed class VirtuousGiftService
     {
         ArgumentNullException.ThrowIfNull(gift);
 
-        var transaction =
-            _mapper.Map(gift);
+        return await _idempotencyStore.GetOrAddAsync(
+            gift.Id,
+            async () =>
+            {
+                var transaction =
+                    _mapper.Map(gift);
 
-        return await _transactionService.CreateTransactionAsync(
-            transaction,
-            cancellationToken);
+                return await _transactionService.CreateTransactionAsync(
+                    transaction,
+                    cancellationToken);
+            });
     }
 }

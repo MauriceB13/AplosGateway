@@ -50,6 +50,14 @@ public static class ServiceCollectionExtensions
     IAplosTransactionService,
     AplosTransactionService>();
 
+    services.Configure<IdempotencyOptions>(
+    configuration.GetSection(
+        IdempotencyOptions.SectionName));
+
+    services.AddSingleton<
+    IVirtuousGiftIdempotencyStore,
+    SqliteVirtuousGiftIdempotencyStore>();
+
     services.AddSingleton<
     IVirtuousGiftTransactionMapper,
     VirtuousGiftTransactionMapper>();
