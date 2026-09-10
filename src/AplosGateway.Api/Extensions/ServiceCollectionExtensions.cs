@@ -38,6 +38,8 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<IAplosTokenDecryptor, RsaAplosTokenDecryptor>();
 
+        services.AddSingleton<IVirtuousWebhookMapper, VirtuousWebhookMapper>();
+
         services.AddHttpClient<
     IAplosAuthenticationService,
     AplosAuthenticationService>();

@@ -10,21 +10,29 @@ public sealed class VirtuousController
     : ControllerBase
 {
     private readonly IVirtuousGiftService _giftService;
-    private readonly IVirtuousGiftTransactionMapper _mapper;
+    private readonly IVirtuousGiftTransactionMapper _transactionMapper;
+    private readonly IVirtuousWebhookMapper _webhookMapper;
 
     public VirtuousController(
         IVirtuousGiftService giftService,
-        IVirtuousGiftTransactionMapper mapper)
+        IVirtuousGiftTransactionMapper transactionMapper,
+        IVirtuousWebhookMapper webhookMapper)
     {
         _giftService = giftService;
-        _mapper = mapper;
+        _transactionMapper = transactionMapper;
+        _webhookMapper = webhookMapper;
     }
 
-    [HttpPost("gift")]
-    public async Task<IActionResult> ProcessGift(
-        [FromBody] VirtuousGift gift,
-        CancellationToken cancellationToken)
+   [HttpPost("gift")]
+public async Task<IActionResult> ProcessGift(
+    [FromBody] VirtuousGiftWebhookRequest request,
+    CancellationToken cancellationToken)
+{
+    try
     {
+        var gift =
+            _webhookMapper.Map(request);
+
         var result =
             await _giftService.ProcessGiftAsync(
                 gift,
@@ -34,14 +42,37 @@ public sealed class VirtuousController
             result,
             "application/json");
     }
-
-    [HttpPost("gift/preview")]
-    public ActionResult<AplosTransactionRequest> PreviewGift(
-        [FromBody] VirtuousGift gift)
+    catch (InvalidOperationException exception)
     {
+        return BadRequest(
+            new
+            {
+                error = exception.Message
+            });
+    }
+}
+
+[HttpPost("gift/preview")]
+public ActionResult<AplosTransactionRequest> PreviewGift(
+    [FromBody] VirtuousGiftWebhookRequest request)
+{
+    try
+    {
+        var gift =
+            _webhookMapper.Map(request);
+
         var transaction =
-            _mapper.Map(gift);
+            _transactionMapper.Map(gift);
 
         return Ok(transaction);
     }
+    catch (InvalidOperationException exception)
+    {
+        return BadRequest(
+            new
+            {
+                error = exception.Message
+            });
+    }
+}
 }
