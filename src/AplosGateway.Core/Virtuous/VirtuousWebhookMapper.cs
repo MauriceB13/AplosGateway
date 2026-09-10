@@ -18,9 +18,54 @@ public sealed class VirtuousWebhookMapper
                 $"Unsupported Virtuous event '{request.Event}'.");
         }
 
+        if (request.Gift.GiftDesignations.Count > 1)
+        {
+            throw new InvalidOperationException(
+                "Virtuous gifts with multiple designations " +
+                "are not currently supported.");
+        }
+
         var designation =
             request.Gift.GiftDesignations
                 .FirstOrDefault();
+
+        if (request.Gift.Id <= 0)
+        {
+            throw new InvalidOperationException(
+                "Virtuous gift ID must be greater than zero.");
+        }
+
+        if (request.Gift.Amount <= 0)
+        {
+            throw new InvalidOperationException(
+                "Virtuous gift amount must be greater than zero.");
+        }
+
+        if (request.Gift.GiftDateUtc == default)
+        {
+            throw new InvalidOperationException(
+                "Virtuous gift date is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(
+                request.Gift.ContactName))
+        {
+            throw new InvalidOperationException(
+                "Virtuous contact name is required.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(
+                request.Gift.CurrencyCode)
+            &&
+            !string.Equals(
+                request.Gift.CurrencyCode,
+                "USD",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"Unsupported Virtuous currency " +
+                $"'{request.Gift.CurrencyCode}'.");
+        }
 
         return new VirtuousGift
         {
