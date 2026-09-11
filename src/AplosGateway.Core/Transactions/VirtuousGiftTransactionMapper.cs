@@ -1,3 +1,4 @@
+using AplosGateway.Core.Configuration;
 using AplosGateway.Core.Virtuous;
 
 namespace AplosGateway.Core.Transactions;
@@ -5,9 +6,13 @@ namespace AplosGateway.Core.Transactions;
 public sealed class VirtuousGiftTransactionMapper
     : IVirtuousGiftTransactionMapper
 {
-    private const int DepositAccountNumber = 20114;
-    private const int IncomeAccountNumber = 41025;
-    private const int FundId = 492387;
+    private readonly TransactionMappingOptions _options;
+
+    public VirtuousGiftTransactionMapper(
+        TransactionMappingOptions options)
+    {
+        _options = options;
+    }
 
     public AplosTransactionRequest Map(
         VirtuousGift gift)
@@ -48,36 +53,31 @@ public sealed class VirtuousGiftTransactionMapper
                 new AplosTransactionLine
                 {
                     Amount = gift.Amount,
-
                     Account =
                         new AplosTransactionAccount
                         {
                             AccountNumber =
-                                DepositAccountNumber
+                                _options.DepositAccountNumber
                         },
-
                     Fund =
                         new AplosFund
                         {
-                            Id = FundId
+                            Id = _options.FundId
                         }
                 },
-
                 new AplosTransactionLine
                 {
                     Amount = -gift.Amount,
-
                     Account =
                         new AplosTransactionAccount
                         {
                             AccountNumber =
-                                IncomeAccountNumber
+                                _options.IncomeAccountNumber
                         },
-
                     Fund =
                         new AplosFund
                         {
-                            Id = FundId
+                            Id = _options.FundId
                         }
                 }
             ]

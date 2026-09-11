@@ -91,6 +91,32 @@ public static class ServiceCollectionExtensions
     services.AddSingleton<
     AplosTransactionResponseParser>();
 
+    services
+    .AddOptions<TransactionMappingOptions>()
+    .Bind(
+        configuration.GetSection(
+            TransactionMappingOptions.SectionName))
+    .Validate(
+        options =>
+            options.DepositAccountNumber > 0,
+        "TransactionMapping:DepositAccountNumber must be greater than zero.")
+    .Validate(
+        options =>
+            options.IncomeAccountNumber > 0,
+        "TransactionMapping:IncomeAccountNumber must be greater than zero.")
+    .Validate(
+        options =>
+            options.FundId > 0,
+        "TransactionMapping:FundId must be greater than zero.")
+    .ValidateOnStart();
+
+services.AddSingleton(
+    provider =>
+        provider
+            .GetRequiredService<
+                IOptions<TransactionMappingOptions>>()
+            .Value);
+
         return services;
     }
 }

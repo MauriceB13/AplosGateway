@@ -1,16 +1,29 @@
 using AplosGateway.Core.Transactions;
 using AplosGateway.Core.Virtuous;
+using AplosGateway.Core.Configuration;
 using Xunit;
 
 namespace AplosGateway.Tests.Transactions;
 
 public sealed class VirtuousGiftTransactionMapperTests
 {
+
+    private static VirtuousGiftTransactionMapper CreateMapper()
+    {
+        return new VirtuousGiftTransactionMapper(
+            new TransactionMappingOptions
+            {
+                DepositAccountNumber = 20114,
+                IncomeAccountNumber = 41025,
+                FundId = 492387
+            });
+    }
+
     [Fact]
     public void Map_CreatesExpectedBalancedAplosTransaction()
     {
         var mapper =
-            new VirtuousGiftTransactionMapper();
+            CreateMapper();
 
         var gift =
             new VirtuousGift
@@ -95,7 +108,7 @@ public sealed class VirtuousGiftTransactionMapperTests
     public void Map_ThrowsWhenGiftIsNull()
     {
         var mapper =
-            new VirtuousGiftTransactionMapper();
+            CreateMapper();
 
         Assert.Throws<ArgumentNullException>(
             () => mapper.Map(null!));
@@ -105,7 +118,7 @@ public sealed class VirtuousGiftTransactionMapperTests
     public void Map_ThrowsWhenGiftIdIsInvalid()
     {
         var mapper =
-            new VirtuousGiftTransactionMapper();
+            CreateMapper();
 
         var gift =
             new VirtuousGift
@@ -124,7 +137,7 @@ public sealed class VirtuousGiftTransactionMapperTests
     public void Map_ThrowsWhenAmountIsInvalid()
     {
         var mapper =
-            new VirtuousGiftTransactionMapper();
+            CreateMapper();
 
         var gift =
             new VirtuousGift
