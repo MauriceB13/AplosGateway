@@ -7,62 +7,74 @@ namespace AplosGateway.Tests.Virtuous;
 public sealed class VirtuousGiftServiceTests
 {
     [Fact]
-public async Task ProcessGiftAsync_FirstAttemptFails_AllowsRetry()
-{
-    var expectedTransaction =
-        new AplosTransactionRequest
-        {
-            Note = "Mapped transaction"
-        };
+    public async Task ProcessGiftAsync_FirstAttemptFails_AllowsRetry()
+    {
+        var expectedTransaction =
+            new AplosTransactionRequest
+            {
+                Note = "Mapped transaction"
+            };
 
-    var mapper =
-        new StubMapper(expectedTransaction);
+        var mapper =
+            new StubMapper(expectedTransaction);
 
-    var transactionService =
-        new FailingThenSuccessfulTransactionService();
+        var transactionService =
+            new FailingThenSuccessfulTransactionService();
 
-    var idempotencyStore =
-        new InMemoryVirtuousGiftIdempotencyStore();
+        var idempotencyStore =
+            new InMemoryVirtuousGiftIdempotencyStore();
 
-    var service =
-        new VirtuousGiftService(
-            mapper,
-            transactionService,
-            idempotencyStore);
+        var responseParser =
+            new AplosTransactionResponseParser();
 
-    var gift =
-        new VirtuousGift
-        {
-            Id = 12345,
-            ContactName = "Ray Test",
-            GiftDateUtc =
-                new DateTime(
-                    2026,
-                    8,
-                    28,
-                    0,
-                    0,
-                    0,
-                    DateTimeKind.Utc),
-            Amount = 1.00m
-        };
+        var service =
+            new VirtuousGiftService(
+                mapper,
+                transactionService,
+                idempotencyStore,
+                responseParser);
 
-    await Assert.ThrowsAsync<InvalidOperationException>(
-        () =>
-            service.ProcessGiftAsync(gift));
+        var gift =
+            new VirtuousGift
+            {
+                Id = 12345,
+                ContactName = "Ray Test",
+                GiftDateUtc =
+                    new DateTime(
+                        2026,
+                        8,
+                        28,
+                        0,
+                        0,
+                        0,
+                        DateTimeKind.Utc),
+                Amount = 1.00m
+            };
 
-    var result =
-        await service.ProcessGiftAsync(gift);
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () =>
+                service.ProcessGiftAsync(gift));
 
-    Assert.Equal(
-        """{"status":200}""",
-        result);
+        var result =
+            await service.ProcessGiftAsync(gift);
 
-    Assert.Equal(
-        2,
-        transactionService.CallCount);
-}
-    
+        Assert.Equal(
+            "processed",
+            result.Status);
+
+        Assert.Equal(
+            12345,
+            result.GiftId);
+
+        Assert.Equal(
+            70064235,
+            result.AplosTransactionId);
+
+        Assert.Equal(
+            2,
+            transactionService.CallCount);
+    }
+
     [Fact]
     public async Task ProcessGiftAsync_MapsGift_AndCreatesTransaction()
     {
@@ -77,16 +89,29 @@ public async Task ProcessGiftAsync_FirstAttemptFails_AllowsRetry()
 
         var transactionService =
             new StubTransactionService(
-                """{"status":200}""");
+                """
+                {
+                  "status": 200,
+                  "data": {
+                    "transaction": {
+                      "id": 70064235
+                    }
+                  }
+                }
+                """);
 
         var idempotencyStore =
             new InMemoryVirtuousGiftIdempotencyStore();
+
+        var responseParser =
+            new AplosTransactionResponseParser();
 
         var service =
             new VirtuousGiftService(
                 mapper,
                 transactionService,
-                idempotencyStore);
+                idempotencyStore,
+                responseParser);
 
         var gift =
             new VirtuousGift
@@ -109,8 +134,16 @@ public async Task ProcessGiftAsync_FirstAttemptFails_AllowsRetry()
             await service.ProcessGiftAsync(gift);
 
         Assert.Equal(
-            """{"status":200}""",
-            result);
+            "processed",
+            result.Status);
+
+        Assert.Equal(
+            12345,
+            result.GiftId);
+
+        Assert.Equal(
+            70064235,
+            result.AplosTransactionId);
 
         Assert.Same(
             gift,
@@ -139,16 +172,29 @@ public async Task ProcessGiftAsync_FirstAttemptFails_AllowsRetry()
 
         var transactionService =
             new StubTransactionService(
-                """{"status":200,"transactionId":70064235}""");
+                """
+                {
+                  "status": 200,
+                  "data": {
+                    "transaction": {
+                      "id": 70064235
+                    }
+                  }
+                }
+                """);
 
         var idempotencyStore =
             new InMemoryVirtuousGiftIdempotencyStore();
+
+        var responseParser =
+            new AplosTransactionResponseParser();
 
         var service =
             new VirtuousGiftService(
                 mapper,
                 transactionService,
-                idempotencyStore);
+                idempotencyStore,
+                responseParser);
 
         var firstGift =
             new VirtuousGift
@@ -191,8 +237,16 @@ public async Task ProcessGiftAsync_FirstAttemptFails_AllowsRetry()
             await service.ProcessGiftAsync(duplicateGift);
 
         Assert.Equal(
-            firstResult,
-            secondResult);
+            firstResult.Status,
+            secondResult.Status);
+
+        Assert.Equal(
+            firstResult.GiftId,
+            secondResult.GiftId);
+
+        Assert.Equal(
+            firstResult.AplosTransactionId,
+            secondResult.AplosTransactionId);
 
         Assert.Equal(
             1,
@@ -212,16 +266,29 @@ public async Task ProcessGiftAsync_FirstAttemptFails_AllowsRetry()
 
         var transactionService =
             new StubTransactionService(
-                """{"status":200}""");
+                """
+                {
+                  "status": 200,
+                  "data": {
+                    "transaction": {
+                      "id": 70064235
+                    }
+                  }
+                }
+                """);
 
         var idempotencyStore =
             new InMemoryVirtuousGiftIdempotencyStore();
+
+        var responseParser =
+            new AplosTransactionResponseParser();
 
         var service =
             new VirtuousGiftService(
                 mapper,
                 transactionService,
-                idempotencyStore);
+                idempotencyStore,
+                responseParser);
 
         await Assert.ThrowsAsync<ArgumentNullException>(
             () =>
@@ -276,29 +343,39 @@ public async Task ProcessGiftAsync_FirstAttemptFails_AllowsRetry()
             LastRequest = request;
             CallCount++;
 
-            return Task.FromResult(_result);
+            return Task.FromResult(
+                _result);
         }
     }
 
     private sealed class FailingThenSuccessfulTransactionService
-    : IAplosTransactionService
-{
-    public int CallCount { get; private set; }
-
-    public Task<string> CreateTransactionAsync(
-        AplosTransactionRequest request,
-        CancellationToken cancellationToken = default)
+        : IAplosTransactionService
     {
-        CallCount++;
+        public int CallCount { get; private set; }
 
-        if (CallCount == 1)
+        public Task<string> CreateTransactionAsync(
+            AplosTransactionRequest request,
+            CancellationToken cancellationToken = default)
         {
-            throw new InvalidOperationException(
-                "Simulated Aplos failure.");
-        }
+            CallCount++;
 
-        return Task.FromResult(
-            """{"status":200}""");
+            if (CallCount == 1)
+            {
+                throw new InvalidOperationException(
+                    "Simulated Aplos failure.");
+            }
+
+            return Task.FromResult(
+                """
+                {
+                  "status": 200,
+                  "data": {
+                    "transaction": {
+                      "id": 70064235
+                    }
+                  }
+                }
+                """);
+        }
     }
-}
 }

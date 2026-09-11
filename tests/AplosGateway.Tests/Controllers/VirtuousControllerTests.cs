@@ -42,6 +42,7 @@ public async Task ProcessGift_OperationalFailure_IsNotConvertedToBadRequest()
         exception.Message,
         StringComparison.OrdinalIgnoreCase);
 }
+
 [Fact]
 public async Task ProcessGift_DuplicateDelivery_ReturnsSameSuccessfulResult()
 {
@@ -62,12 +63,14 @@ public async Task ProcessGift_DuplicateDelivery_ReturnsSameSuccessfulResult()
             Amount = 150m
         };
 
-    const string aplosResult =
-        """{"status":200,"message":"posted: 70064235"}""";
-
     var giftService =
         new StubGiftService(
-            aplosResult);
+            new VirtuousGiftProcessingResult
+            {
+                Status = "processed",
+                GiftId = 38241,
+                AplosTransactionId = 70064235
+            });
 
     var controller =
         new VirtuousController(
@@ -89,21 +92,33 @@ public async Task ProcessGift_DuplicateDelivery_ReturnsSameSuccessfulResult()
             request,
             CancellationToken.None);
 
-    var firstContent =
-        Assert.IsType<ContentResult>(
+    var firstOk =
+        Assert.IsType<OkObjectResult>(
             firstResult);
 
-    var secondContent =
-        Assert.IsType<ContentResult>(
+    var secondOk =
+        Assert.IsType<OkObjectResult>(
             secondResult);
 
-    Assert.Equal(
-        aplosResult,
-        firstContent.Content);
+    var firstResponse =
+        Assert.IsType<VirtuousGiftProcessingResult>(
+            firstOk.Value);
+
+    var secondResponse =
+        Assert.IsType<VirtuousGiftProcessingResult>(
+            secondOk.Value);
 
     Assert.Equal(
-        aplosResult,
-        secondContent.Content);
+        firstResponse.Status,
+        secondResponse.Status);
+
+    Assert.Equal(
+        firstResponse.GiftId,
+        secondResponse.GiftId);
+
+    Assert.Equal(
+        firstResponse.AplosTransactionId,
+        secondResponse.AplosTransactionId);
 
     Assert.Equal(
         2,
@@ -115,7 +130,12 @@ public async Task ProcessGift_UnsupportedEvent_ReturnsBadRequest()
 {
     var giftService =
         new StubGiftService(
-            """{"status":200}""");
+            new VirtuousGiftProcessingResult
+            {
+                Status = "processed",
+                GiftId = 38241,
+                AplosTransactionId = 70064235
+            });
 
     var transactionMapper =
         new StubTransactionMapper(
@@ -165,7 +185,12 @@ public void PreviewGift_UnsupportedEvent_ReturnsBadRequest()
 {
     var giftService =
         new StubGiftService(
-            """{"status":200}""");
+            new VirtuousGiftProcessingResult
+            {
+                Status = "processed",
+                GiftId = 38241,
+                AplosTransactionId = 70064235
+            });
 
     var transactionMapper =
         new StubTransactionMapper(
@@ -208,81 +233,95 @@ public void PreviewGift_UnsupportedEvent_ReturnsBadRequest()
         transactionMapper.CallCount);
 }
 
-    [Fact]
-    public async Task ProcessGift_MapsWebhook_AndProcessesGift()
-    {
-        var mappedGift =
-            new VirtuousGift
+   [Fact]
+public async Task ProcessGift_MapsWebhook_AndProcessesGift()
+{
+    var mappedGift =
+        new VirtuousGift
+        {
+            Id = 38241,
+            ContactName = "John Smith",
+            GiftDateUtc =
+                new DateTime(
+                    2026,
+                    9,
+                    2,
+                    0,
+                    0,
+                    0,
+                    DateTimeKind.Utc),
+            Amount = 150m,
+            Project = "Reunion Golf Hole Sponsor",
+            ProjectCode = "49999-25",
+            Segment = "2026 Golf Scramble Web All Contacts "
+        };
+
+    var webhookMapper =
+        new StubWebhookMapper(mappedGift);
+
+    var giftService =
+        new StubGiftService(
+            new VirtuousGiftProcessingResult
             {
-                Id = 38241,
-                ContactName = "John Smith",
-                GiftDateUtc =
-                    new DateTime(
-                        2026,
-                        9,
-                        2,
-                        0,
-                        0,
-                        0,
-                        DateTimeKind.Utc),
-                Amount = 150m,
-                Project = "Reunion Golf Hole Sponsor",
-                ProjectCode = "49999-25",
-                Segment = "2026 Golf Scramble Web All Contacts "
-            };
+                Status = "processed",
+                GiftId = 38241,
+                AplosTransactionId = 70064235
+            });
 
-        var webhookMapper =
-            new StubWebhookMapper(mappedGift);
+    var transactionMapper =
+        new StubTransactionMapper(
+            new AplosTransactionRequest());
 
-        var giftService =
-            new StubGiftService(
-                """{"status":200,"transactionId":70064235}""");
+    var controller =
+        new VirtuousController(
+            giftService,
+            transactionMapper,
+            webhookMapper);
 
-        var transactionMapper =
-            new StubTransactionMapper(
-                new AplosTransactionRequest());
+    var request =
+        CreateWebhookRequest();
 
-        var controller =
-            new VirtuousController(
-                giftService,
-                transactionMapper,
-                webhookMapper);
-
-        var request =
-            CreateWebhookRequest();
-
-        var result =
-            await controller.ProcessGift(
-                request,
-                CancellationToken.None);
-
-        var contentResult =
-            Assert.IsType<ContentResult>(result);
-
-        Assert.Equal(
-            "application/json",
-            contentResult.ContentType);
-
-        Assert.Equal(
-            """{"status":200,"transactionId":70064235}""",
-            contentResult.Content);
-
-        Assert.Same(
+    var result =
+        await controller.ProcessGift(
             request,
-            webhookMapper.LastRequest);
+            CancellationToken.None);
 
-        Assert.Same(
-            mappedGift,
-            giftService.LastGift);
+    var okResult =
+        Assert.IsType<OkObjectResult>(
+            result);
 
-        Assert.Equal(
-            1,
-            webhookMapper.CallCount);
+    var response =
+        Assert.IsType<VirtuousGiftProcessingResult>(
+            okResult.Value);
 
-        Assert.Equal(
-            1,
-            giftService.CallCount);
-    }
+    Assert.Equal(
+        "processed",
+        response.Status);
+
+    Assert.Equal(
+        38241,
+        response.GiftId);
+
+    Assert.Equal(
+        70064235,
+        response.AplosTransactionId);
+
+    Assert.Same(
+        request,
+        webhookMapper.LastRequest);
+
+    Assert.Same(
+        mappedGift,
+        giftService.LastGift);
+
+    Assert.Equal(
+        1,
+        webhookMapper.CallCount);
+
+    Assert.Equal(
+        1,
+        giftService.CallCount);
+}
 
     [Fact]
     public void PreviewGift_MapsWebhook_AndReturnsTransaction()
@@ -318,8 +357,13 @@ public void PreviewGift_UnsupportedEvent_ReturnsBadRequest()
                 expectedTransaction);
 
         var giftService =
-            new StubGiftService(
-                """{"status":200}""");
+           new StubGiftService(
+            new VirtuousGiftProcessingResult
+            {
+                Status = "processed",
+                GiftId = 38241,
+                AplosTransactionId = 70064235
+            });
 
         var controller =
             new VirtuousController(
@@ -501,32 +545,32 @@ public void PreviewGift_UnsupportedEvent_ReturnsBadRequest()
     }
 
     private sealed class StubGiftService
-        : IVirtuousGiftService
+    : IVirtuousGiftService
+{
+    private readonly VirtuousGiftProcessingResult _result;
+
+    public StubGiftService(
+        VirtuousGiftProcessingResult result)
     {
-        private readonly string _result;
-
-        public StubGiftService(
-            string result)
-        {
-            _result = result;
-        }
-
-        public VirtuousGift?
-            LastGift { get; private set; }
-
-        public int CallCount { get; private set; }
-
-        public Task<string> ProcessGiftAsync(
-            VirtuousGift gift,
-            CancellationToken cancellationToken = default)
-        {
-            LastGift = gift;
-            CallCount++;
-
-            return Task.FromResult(
-                _result);
-        }
+        _result = result;
     }
+
+    public VirtuousGift?
+        LastGift { get; private set; }
+
+    public int CallCount { get; private set; }
+
+    public Task<VirtuousGiftProcessingResult> ProcessGiftAsync(
+        VirtuousGift gift,
+        CancellationToken cancellationToken = default)
+    {
+        LastGift = gift;
+        CallCount++;
+
+        return Task.FromResult(
+            _result);
+    }
+}
 
     private sealed class ThrowingWebhookMapper
     : IVirtuousWebhookMapper
@@ -549,7 +593,7 @@ public void PreviewGift_UnsupportedEvent_ReturnsBadRequest()
 private sealed class ThrowingGiftService
     : IVirtuousGiftService
 {
-    public Task<string> ProcessGiftAsync(
+    public Task<VirtuousGiftProcessingResult> ProcessGiftAsync(
         VirtuousGift gift,
         CancellationToken cancellationToken = default)
     {

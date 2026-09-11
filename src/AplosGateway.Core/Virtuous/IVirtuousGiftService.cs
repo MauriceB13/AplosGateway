@@ -2,7 +2,7 @@ namespace AplosGateway.Core.Virtuous;
 
 public interface IVirtuousGiftService
 {
-    Task<string> ProcessGiftAsync(
+    Task<VirtuousGiftProcessingResult> ProcessGiftAsync(
         VirtuousGift gift,
         CancellationToken cancellationToken = default);
 }

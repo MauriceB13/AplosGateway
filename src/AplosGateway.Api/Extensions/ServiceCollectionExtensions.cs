@@ -88,6 +88,9 @@ public static class ServiceCollectionExtensions
     IVirtuousGiftService,
     VirtuousGiftService>();
 
+    services.AddSingleton<
+    AplosTransactionResponseParser>();
+
         return services;
     }
 }

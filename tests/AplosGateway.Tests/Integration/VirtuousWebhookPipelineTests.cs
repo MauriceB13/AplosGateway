@@ -111,7 +111,7 @@ public sealed class VirtuousWebhookPipelineTests
     private sealed class ThrowingGiftService
         : IVirtuousGiftService
     {
-        public Task<string> ProcessGiftAsync(
+       public Task<VirtuousGiftProcessingResult> ProcessGiftAsync(
             VirtuousGift gift,
             CancellationToken cancellationToken = default)
         {

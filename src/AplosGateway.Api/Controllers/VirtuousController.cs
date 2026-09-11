@@ -38,9 +38,7 @@ public async Task<IActionResult> ProcessGift(
                 gift,
                 cancellationToken);
 
-        return Content(
-            result,
-            "application/json");
+        return Ok(result);
     }
     catch (VirtuousWebhookValidationException exception)
     {

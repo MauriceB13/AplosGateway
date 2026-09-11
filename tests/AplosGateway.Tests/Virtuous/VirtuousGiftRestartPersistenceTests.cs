@@ -57,17 +57,30 @@ public sealed class VirtuousGiftRestartPersistenceTests
 
             var firstTransactionService =
                 new StubTransactionService(
-                    """{"status":200,"transactionId":70064235}""");
+                    """
+                    {
+                      "status": 200,
+                      "data": {
+                        "transaction": {
+                          "id": 70064235
+                        }
+                      }
+                    }
+                    """);
 
             var firstStore =
                 new SqliteVirtuousGiftIdempotencyStore(
                     options);
 
+            var responseParser =
+                new AplosTransactionResponseParser();
+
             var firstService =
                 new VirtuousGiftService(
                     firstMapper,
                     firstTransactionService,
-                    firstStore);
+                    firstStore,
+                    responseParser);
 
             var firstResult =
                 await firstService.ProcessGiftAsync(
@@ -82,7 +95,16 @@ public sealed class VirtuousGiftRestartPersistenceTests
 
             var secondTransactionService =
                 new StubTransactionService(
-                    """{"status":200,"transactionId":99999999}""");
+                    """
+                    {
+                      "status": 200,
+                      "data": {
+                        "transaction": {
+                          "id": 99999999
+                        }
+                      }
+                    }
+                    """);
 
             var secondStore =
                 new SqliteVirtuousGiftIdempotencyStore(
@@ -92,15 +114,28 @@ public sealed class VirtuousGiftRestartPersistenceTests
                 new VirtuousGiftService(
                     secondMapper,
                     secondTransactionService,
-                    secondStore);
+                    secondStore,
+                    responseParser);
 
             var secondResult =
                 await secondService.ProcessGiftAsync(
                     gift);
 
             Assert.Equal(
-                firstResult,
-                secondResult);
+                firstResult.Status,
+                secondResult.Status);
+
+            Assert.Equal(
+                firstResult.GiftId,
+                secondResult.GiftId);
+
+            Assert.Equal(
+                firstResult.AplosTransactionId,
+                secondResult.AplosTransactionId);
+
+            Assert.Equal(
+                70064235,
+                secondResult.AplosTransactionId);
 
             Assert.Equal(
                 0,
