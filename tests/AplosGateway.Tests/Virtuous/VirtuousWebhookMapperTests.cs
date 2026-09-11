@@ -5,6 +5,27 @@ namespace AplosGateway.Tests.Virtuous;
 public sealed class VirtuousWebhookMapperTests
 {
         [Fact]
+public void Map_MissingCurrency_ThrowsInvalidOperationException()
+{
+    var request =
+        CreateValidRequest();
+
+    request.Gift.CurrencyCode = string.Empty;
+
+    var mapper =
+        new VirtuousWebhookMapper();
+
+    var exception =
+        Assert.Throws<InvalidOperationException>(
+            () => mapper.Map(request));
+
+    Assert.Contains(
+        "currency is required",
+        exception.Message,
+        StringComparison.OrdinalIgnoreCase);
+}
+        
+        [Fact]
     public void Map_InvalidGiftId_ThrowsInvalidOperationException()
     {
         var request =
@@ -223,7 +244,7 @@ public sealed class VirtuousWebhookMapperTests
     var request =
     new VirtuousGiftWebhookRequest
     {
-        Event = "GiftCreate",
+            Event = "GiftCreate",
 
         Organization =
             new VirtuousOrganization
@@ -237,6 +258,7 @@ public sealed class VirtuousWebhookMapperTests
             {
                 Id = 38241,
                 ContactName = "John Smith",
+                CurrencyCode = "USD",
                 GiftDateUtc =
                     new DateTime(
                         2026,
@@ -285,6 +307,7 @@ public void Map_MultipleDesignations_ThrowsInvalidOperationException()
             {
                 Id = 38241,
                 ContactName = "John Smith",
+                CurrencyCode = "USD",
 
                     GiftDateUtc =
                         new DateTime(

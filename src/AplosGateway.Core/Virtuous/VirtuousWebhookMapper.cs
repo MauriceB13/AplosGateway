@@ -45,25 +45,29 @@ public sealed class VirtuousWebhookMapper
                 "Virtuous gift date is required.");
         }
 
-        if (string.IsNullOrWhiteSpace(
-                request.Gift.ContactName))
-        {
-            throw new InvalidOperationException(
-                "Virtuous contact name is required.");
-        }
+if (string.IsNullOrWhiteSpace(
+        request.Gift.ContactName))
+{
+    throw new InvalidOperationException(
+        "Virtuous contact name is required.");
+}
 
-        if (!string.IsNullOrWhiteSpace(
-                request.Gift.CurrencyCode)
-            &&
-            !string.Equals(
-                request.Gift.CurrencyCode,
-                "USD",
-                StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException(
-                $"Unsupported Virtuous currency " +
-                $"'{request.Gift.CurrencyCode}'.");
-        }
+if (string.IsNullOrWhiteSpace(
+        request.Gift.CurrencyCode))
+{
+    throw new InvalidOperationException(
+        "Virtuous gift currency is required.");
+}
+
+if (!string.Equals(
+        request.Gift.CurrencyCode,
+        "USD",
+        StringComparison.OrdinalIgnoreCase))
+{
+    throw new InvalidOperationException(
+        $"Unsupported Virtuous currency " +
+        $"'{request.Gift.CurrencyCode}'.");
+}
 
  var designations =
     request.Gift.GiftDesignations
