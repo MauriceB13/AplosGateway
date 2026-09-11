@@ -10,6 +10,7 @@ using AplosGateway.Core.Transactions;
 using AplosGateway.Infrastructure.Transactions;
 using AplosGateway.Core.Virtuous;
 using AplosGateway.Infrastructure.Virtuous;
+using Microsoft.Extensions.Options;
 
 namespace AplosGateway.Api.Extensions;
 
@@ -34,11 +35,23 @@ public static class ServiceCollectionExtensions
         services.Configure<AplosOptions>(
             configuration.GetSection(AplosOptions.SectionName));
 
+        services.Configure<VirtuousOptions>(
+            configuration.GetSection(VirtuousOptions.SectionName));    
+
         services.AddMemoryCache();
 
         services.AddSingleton<IAplosTokenDecryptor, RsaAplosTokenDecryptor>();
 
-        services.AddSingleton<IVirtuousWebhookMapper, VirtuousWebhookMapper>();
+        services.AddSingleton(
+            provider =>
+                provider
+                    .GetRequiredService<
+                        IOptions<VirtuousOptions>>()
+                    .Value);
+
+        services.AddSingleton<
+            IVirtuousWebhookMapper,
+            VirtuousWebhookMapper>();
 
         services.AddHttpClient<
     IAplosAuthenticationService,

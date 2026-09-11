@@ -1,11 +1,12 @@
 using AplosGateway.Core.Virtuous;
+using AplosGateway.Core.Configuration;
 
 namespace AplosGateway.Tests.Virtuous;
 
 public sealed class VirtuousWebhookMapperTests
 {
         [Fact]
-public void Map_MissingCurrency_ThrowsInvalidOperationException()
+        public void Map_MissingCurrency_ThrowsInvalidOperationException()
 {
     var request =
         CreateValidRequest();
@@ -13,10 +14,10 @@ public void Map_MissingCurrency_ThrowsInvalidOperationException()
     request.Gift.CurrencyCode = string.Empty;
 
     var mapper =
-        new VirtuousWebhookMapper();
+        CreateMapper();
 
     var exception =
-        Assert.Throws<InvalidOperationException>(
+        Assert.Throws<VirtuousWebhookValidationException>(
             () => mapper.Map(request));
 
     Assert.Contains(
@@ -34,10 +35,10 @@ public void Map_MissingCurrency_ThrowsInvalidOperationException()
         request.Gift.Id = 0;
 
         var mapper =
-            new VirtuousWebhookMapper();
+            CreateMapper();
 
         var exception =
-            Assert.Throws<InvalidOperationException>(
+            Assert.Throws<VirtuousWebhookValidationException>(
                 () => mapper.Map(request));
 
         Assert.Contains(
@@ -55,10 +56,10 @@ public void Map_MissingCurrency_ThrowsInvalidOperationException()
         request.Gift.Amount = 0m;
 
         var mapper =
-            new VirtuousWebhookMapper();
+            CreateMapper();
 
         var exception =
-            Assert.Throws<InvalidOperationException>(
+            Assert.Throws<VirtuousWebhookValidationException>(
                 () => mapper.Map(request));
 
         Assert.Contains(
@@ -76,10 +77,10 @@ public void Map_MissingCurrency_ThrowsInvalidOperationException()
         request.Gift.GiftDateUtc = default;
 
         var mapper =
-            new VirtuousWebhookMapper();
+            CreateMapper();
 
         var exception =
-            Assert.Throws<InvalidOperationException>(
+            Assert.Throws<VirtuousWebhookValidationException>(
                 () => mapper.Map(request));
 
         Assert.Contains(
@@ -97,10 +98,10 @@ public void Map_MissingCurrency_ThrowsInvalidOperationException()
         request.Gift.ContactName = " ";
 
         var mapper =
-            new VirtuousWebhookMapper();
+            CreateMapper();
 
         var exception =
-            Assert.Throws<InvalidOperationException>(
+            Assert.Throws<VirtuousWebhookValidationException>(
                 () => mapper.Map(request));
 
         Assert.Contains(
@@ -118,10 +119,10 @@ public void Map_MissingCurrency_ThrowsInvalidOperationException()
         request.Gift.CurrencyCode = "CAD";
 
         var mapper =
-            new VirtuousWebhookMapper();
+            CreateMapper();
 
         var exception =
-            Assert.Throws<InvalidOperationException>(
+            Assert.Throws<VirtuousWebhookValidationException>(
                 () => mapper.Map(request));
 
         Assert.Contains(
@@ -197,7 +198,7 @@ public void Map_MissingCurrency_ThrowsInvalidOperationException()
             };
 
         var mapper =
-            new VirtuousWebhookMapper();
+            CreateMapper();
 
         var result =
             mapper.Map(request);
@@ -273,7 +274,7 @@ public void Map_MissingCurrency_ThrowsInvalidOperationException()
     };
 
         var mapper =
-            new VirtuousWebhookMapper();
+            CreateMapper();
 
         var result =
             mapper.Map(request);
@@ -347,10 +348,10 @@ public void Map_MultipleDesignations_ThrowsInvalidOperationException()
         };
 
     var mapper =
-    new VirtuousWebhookMapper();
+    CreateMapper();
 
     var exception =
-        Assert.Throws<InvalidOperationException>(
+        Assert.Throws<VirtuousWebhookValidationException>(
             () => mapper.Map(request));
 
     Assert.Contains(
@@ -368,10 +369,10 @@ public void Map_DesignationGiftIdDoesNotMatch_ThrowsInvalidOperationException()
     request.Gift.GiftDesignations[0].GiftId = 99999;
 
     var mapper =
-        new VirtuousWebhookMapper();
+        CreateMapper();
 
     var exception =
-        Assert.Throws<InvalidOperationException>(
+    Assert.Throws<VirtuousWebhookValidationException>(
             () => mapper.Map(request));
 
     Assert.Contains(
@@ -389,10 +390,10 @@ public void Map_DesignationAmountDoesNotMatch_ThrowsInvalidOperationException()
     request.Gift.GiftDesignations[0].AmountDesignated = 100m;
 
     var mapper =
-        new VirtuousWebhookMapper();
+        CreateMapper();
 
     var exception =
-        Assert.Throws<InvalidOperationException>(
+        Assert.Throws<VirtuousWebhookValidationException>(
             () => mapper.Map(request));
 
     Assert.Contains(
@@ -410,7 +411,7 @@ public void Map_NullDesignations_UsesEmptyProjectValues()
     request.Gift.GiftDesignations = null!;
 
     var mapper =
-        new VirtuousWebhookMapper();
+        CreateMapper();
 
     var result =
         mapper.Map(request);
@@ -433,10 +434,10 @@ public void Map_NullDesignations_UsesEmptyProjectValues()
         request.Organization.Id = 9999;
 
         var mapper =
-            new VirtuousWebhookMapper();
+            CreateMapper();
 
         var exception =
-            Assert.Throws<InvalidOperationException>(
+            Assert.Throws<VirtuousWebhookValidationException>(
                 () => mapper.Map(request));
 
         Assert.Contains(
@@ -471,10 +472,10 @@ public void Map_NullDesignations_UsesEmptyProjectValues()
         };
 
     var mapper =
-        new VirtuousWebhookMapper();
+        CreateMapper();
 
     var exception =
-        Assert.Throws<InvalidOperationException>(
+        Assert.Throws<VirtuousWebhookValidationException>(
             () =>
                 mapper.Map(request));
 
@@ -487,12 +488,22 @@ public void Map_NullDesignations_UsesEmptyProjectValues()
     public void Map_NullRequest_ThrowsArgumentNullException()
     {
         var mapper =
-            new VirtuousWebhookMapper();
+            CreateMapper();
 
         Assert.Throws<ArgumentNullException>(
             () =>
                 mapper.Map(null!));
     }
+
+    private static VirtuousWebhookMapper
+    CreateMapper()
+{
+    return new VirtuousWebhookMapper(
+        new VirtuousOptions
+        {
+            OrganizationId = 7472
+        });
+}
 
     private static VirtuousGiftWebhookRequest
     CreateValidRequest()
