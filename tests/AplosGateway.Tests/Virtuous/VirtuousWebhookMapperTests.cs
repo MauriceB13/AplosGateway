@@ -118,6 +118,13 @@ public sealed class VirtuousWebhookMapperTests
                 EventId =
                     "6b2be4f5-b67b-4808-a800-9fadef0c5d01",
 
+                Organization =
+                new VirtuousOrganization
+                {
+                    Id = 7472,
+                    Name = "Maine Central Institute"
+                },
+
                 Gift =
                     new VirtuousWebhookGift
                     {
@@ -213,10 +220,17 @@ public sealed class VirtuousWebhookMapperTests
     [Fact]
     public void Map_NoDesignations_UsesEmptyProjectValues()
     {
-        var request =
+    var request =
     new VirtuousGiftWebhookRequest
     {
         Event = "GiftCreate",
+
+        Organization =
+            new VirtuousOrganization
+            {
+                Id = 7472,
+                Name = "Maine Central Institute"
+            },
 
         Gift =
             new VirtuousWebhookGift
@@ -255,15 +269,22 @@ public sealed class VirtuousWebhookMapperTests
 public void Map_MultipleDesignations_ThrowsInvalidOperationException()
 {
     var request =
-        new VirtuousGiftWebhookRequest
-        {
-            Event = "GiftCreate",
+    new VirtuousGiftWebhookRequest
+    {
+        Event = "GiftCreate",
 
-            Gift =
-                new VirtuousWebhookGift
-                {
-                    Id = 38241,
-                    ContactName = "John Smith",
+        Organization =
+            new VirtuousOrganization
+            {
+                Id = 7472,
+                Name = "Maine Central Institute"
+            },
+
+        Gift =
+            new VirtuousWebhookGift
+            {
+                Id = 38241,
+                ContactName = "John Smith",
 
                     GiftDateUtc =
                         new DateTime(
@@ -313,6 +334,26 @@ public void Map_MultipleDesignations_ThrowsInvalidOperationException()
         "multiple designations",
         exception.Message,
         StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Map_UnsupportedOrganization_ThrowsInvalidOperationException()
+    {
+        var request =
+            CreateValidRequest();
+
+        request.Organization.Id = 9999;
+
+        var mapper =
+            new VirtuousWebhookMapper();
+
+        var exception =
+            Assert.Throws<InvalidOperationException>(
+                () => mapper.Map(request));
+
+        Assert.Contains(
+            "Unsupported Virtuous organization",
+            exception.Message);
     }
 
     [Fact]
@@ -374,6 +415,13 @@ public void Map_MultipleDesignations_ThrowsInvalidOperationException()
 
         EventId =
             "6b2be4f5-b67b-4808-a800-9fadef0c5d01",
+
+        Organization =
+        new VirtuousOrganization
+        {
+            Id = 7472,
+            Name = "Maine Central Institute"
+        },    
 
         EventDateTimeUtc =
             new DateTime(

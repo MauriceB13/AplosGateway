@@ -3,6 +3,8 @@ namespace AplosGateway.Core.Virtuous;
 public sealed class VirtuousWebhookMapper
     : IVirtuousWebhookMapper
 {
+    private const long SupportedOrganizationId = 7472;
+
     public VirtuousGift Map(
         VirtuousGiftWebhookRequest request)
     {
@@ -18,16 +20,12 @@ public sealed class VirtuousWebhookMapper
                 $"Unsupported Virtuous event '{request.Event}'.");
         }
 
-        if (request.Gift.GiftDesignations.Count > 1)
+        if (request.Organization.Id != SupportedOrganizationId)
         {
             throw new InvalidOperationException(
-                "Virtuous gifts with multiple designations " +
-                "are not currently supported.");
+                $"Unsupported Virtuous organization " +
+                $"'{request.Organization.Id}'.");
         }
-
-        var designation =
-            request.Gift.GiftDesignations
-                .FirstOrDefault();
 
         if (request.Gift.Id <= 0)
         {
@@ -66,6 +64,17 @@ public sealed class VirtuousWebhookMapper
                 $"Unsupported Virtuous currency " +
                 $"'{request.Gift.CurrencyCode}'.");
         }
+
+        if (request.Gift.GiftDesignations.Count > 1)
+        {
+            throw new InvalidOperationException(
+                "Virtuous gifts with multiple designations " +
+                "are not currently supported.");
+        }
+
+        var designation =
+            request.Gift.GiftDesignations
+                .FirstOrDefault();
 
         return new VirtuousGift
         {
