@@ -36,8 +36,10 @@ public sealed class AplosTransactionResponseParser
                 "id",
                 out var idElement)
             ||
-            !idElement.TryGetInt64(
-                out var transactionId))
+           !idElement.TryGetInt64(
+                out var transactionId)
+            ||
+            transactionId <= 0)
         {
             throw new InvalidOperationException(
                 "Aplos transaction response did not contain a transaction ID.");

@@ -41,6 +41,37 @@ public sealed class AplosTransactionResponseParserTests
     }
 
     [Fact]
+public void Parse_NonPositiveTransactionId_ThrowsInvalidOperationException()
+{
+    var parser =
+        new AplosTransactionResponseParser();
+
+    const string response =
+        """
+        {
+          "status": 200,
+          "data": {
+            "transaction": {
+              "id": 0
+            }
+          }
+        }
+        """;
+
+    var exception =
+        Assert.Throws<InvalidOperationException>(
+            () =>
+                parser.Parse(
+                    38241,
+                    response));
+
+    Assert.Contains(
+        "transaction ID",
+        exception.Message,
+        StringComparison.OrdinalIgnoreCase);
+}
+
+    [Fact]
     public void Parse_MissingTransactionId_ThrowsInvalidOperationException()
     {
         const string response =
