@@ -42,7 +42,7 @@ public async Task<IActionResult> ProcessGift(
             result,
             "application/json");
     }
-    catch (InvalidOperationException exception)
+    catch (VirtuousWebhookValidationException exception)
     {
         return BadRequest(
             new
@@ -66,7 +66,7 @@ public ActionResult<AplosTransactionRequest> PreviewGift(
 
         return Ok(transaction);
     }
-    catch (InvalidOperationException exception)
+    catch (VirtuousWebhookValidationException exception)
     {
         return BadRequest(
             new

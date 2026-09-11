@@ -8,6 +8,42 @@ namespace AplosGateway.Tests.Controllers;
 public sealed class VirtuousControllerTests
 {
 [Fact]
+public async Task ProcessGift_OperationalFailure_IsNotConvertedToBadRequest()
+{
+    var gift =
+        new VirtuousGift
+        {
+            Id = 1,
+            ContactName = "Test",
+            GiftDateUtc = DateTime.UtcNow,
+            Amount = 1m
+        };
+
+    var transaction =
+        new AplosTransactionRequest();
+
+    var controller =
+        new VirtuousController(
+            new ThrowingGiftService(),
+            new StubTransactionMapper(transaction),
+            new StubWebhookMapper(gift));
+
+    var request =
+        new VirtuousGiftWebhookRequest();
+
+    var exception =
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => controller.ProcessGift(
+                request,
+                CancellationToken.None));
+
+    Assert.Contains(
+        "Aplos unavailable",
+        exception.Message,
+        StringComparison.OrdinalIgnoreCase);
+}
+
+[Fact]
 public async Task ProcessGift_UnsupportedEvent_ReturnsBadRequest()
 {
     var giftService =
@@ -20,7 +56,7 @@ public async Task ProcessGift_UnsupportedEvent_ReturnsBadRequest()
 
     var webhookMapper =
         new ThrowingWebhookMapper(
-            new InvalidOperationException(
+            new VirtuousWebhookValidationException(
                 "Unsupported Virtuous event 'GiftUpdate'."));
 
     var controller =
@@ -70,7 +106,7 @@ public void PreviewGift_UnsupportedEvent_ReturnsBadRequest()
 
     var webhookMapper =
         new ThrowingWebhookMapper(
-            new InvalidOperationException(
+            new VirtuousWebhookValidationException(
                 "Unsupported Virtuous event 'GiftUpdate'."));
 
     var controller =
@@ -440,6 +476,18 @@ public void PreviewGift_UnsupportedEvent_ReturnsBadRequest()
         VirtuousGiftWebhookRequest request)
     {
         throw _exception;
+    }
+}
+
+private sealed class ThrowingGiftService
+    : IVirtuousGiftService
+{
+    public Task<string> ProcessGiftAsync(
+        VirtuousGift gift,
+        CancellationToken cancellationToken = default)
+    {
+        throw new InvalidOperationException(
+            "Aplos unavailable.");
     }
 }
 }
