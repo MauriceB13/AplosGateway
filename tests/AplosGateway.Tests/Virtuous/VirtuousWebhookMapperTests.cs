@@ -379,6 +379,29 @@ public void Map_DesignationAmountDoesNotMatch_ThrowsInvalidOperationException()
 }
 
     [Fact]
+public void Map_NullDesignations_UsesEmptyProjectValues()
+{
+    var request =
+        CreateValidRequest();
+
+    request.Gift.GiftDesignations = null!;
+
+    var mapper =
+        new VirtuousWebhookMapper();
+
+    var result =
+        mapper.Map(request);
+
+    Assert.Equal(
+        string.Empty,
+        result.Project);
+
+    Assert.Equal(
+        string.Empty,
+        result.ProjectCode);
+}
+
+    [Fact]
     public void Map_UnsupportedOrganization_ThrowsInvalidOperationException()
     {
         var request =

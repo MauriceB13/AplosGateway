@@ -65,16 +65,19 @@ public sealed class VirtuousWebhookMapper
                 $"'{request.Gift.CurrencyCode}'.");
         }
 
-        if (request.Gift.GiftDesignations.Count > 1)
-        {
-            throw new InvalidOperationException(
-                "Virtuous gifts with multiple designations " +
-                "are not currently supported.");
-        }
-
-        var designation =
+ var designations =
     request.Gift.GiftDesignations
-        .FirstOrDefault();
+    ?? [];
+
+if (designations.Count > 1)
+{
+    throw new InvalidOperationException(
+        "Virtuous gifts with multiple designations " +
+        "are not currently supported.");
+}
+
+var designation =
+    designations.FirstOrDefault();
 
 if (designation is not null)
 {
@@ -94,7 +97,6 @@ if (designation is not null)
             $"gift amount '{request.Gift.Amount}'.");
     }
 }
-
         return new VirtuousGift
         {
             Id = request.Gift.Id,
