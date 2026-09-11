@@ -19,3 +19,7 @@ var app = builder.Build();
 app.UseGatewayPipeline();
 
 app.Run();
+
+public partial class Program
+{
+}
