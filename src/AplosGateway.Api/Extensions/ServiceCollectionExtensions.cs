@@ -35,8 +35,15 @@ public static class ServiceCollectionExtensions
         services.Configure<AplosOptions>(
             configuration.GetSection(AplosOptions.SectionName));
 
-        services.Configure<VirtuousOptions>(
-            configuration.GetSection(VirtuousOptions.SectionName));    
+        services
+            .AddOptions<VirtuousOptions>()
+            .Bind(
+                configuration.GetSection(
+                    VirtuousOptions.SectionName))
+            .Validate(
+                options => options.OrganizationId > 0,
+                "Virtuous:OrganizationId must be greater than zero.")
+            .ValidateOnStart();   
 
         services.AddMemoryCache();
 
