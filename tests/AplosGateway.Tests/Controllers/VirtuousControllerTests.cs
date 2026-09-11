@@ -42,6 +42,73 @@ public async Task ProcessGift_OperationalFailure_IsNotConvertedToBadRequest()
         exception.Message,
         StringComparison.OrdinalIgnoreCase);
 }
+[Fact]
+public async Task ProcessGift_DuplicateDelivery_ReturnsSameSuccessfulResult()
+{
+    var gift =
+        new VirtuousGift
+        {
+            Id = 38241,
+            ContactName = "John Smith",
+            GiftDateUtc =
+                new DateTime(
+                    2026,
+                    9,
+                    2,
+                    0,
+                    0,
+                    0,
+                    DateTimeKind.Utc),
+            Amount = 150m
+        };
+
+    const string aplosResult =
+        """{"status":200,"message":"posted: 70064235"}""";
+
+    var giftService =
+        new StubGiftService(
+            aplosResult);
+
+    var controller =
+        new VirtuousController(
+            giftService,
+            new StubTransactionMapper(
+                new AplosTransactionRequest()),
+            new StubWebhookMapper(gift));
+
+    var request =
+        new VirtuousGiftWebhookRequest();
+
+    var firstResult =
+        await controller.ProcessGift(
+            request,
+            CancellationToken.None);
+
+    var secondResult =
+        await controller.ProcessGift(
+            request,
+            CancellationToken.None);
+
+    var firstContent =
+        Assert.IsType<ContentResult>(
+            firstResult);
+
+    var secondContent =
+        Assert.IsType<ContentResult>(
+            secondResult);
+
+    Assert.Equal(
+        aplosResult,
+        firstContent.Content);
+
+    Assert.Equal(
+        aplosResult,
+        secondContent.Content);
+
+    Assert.Equal(
+        2,
+        giftService.CallCount);
+}
 
 [Fact]
 public async Task ProcessGift_UnsupportedEvent_ReturnsBadRequest()
