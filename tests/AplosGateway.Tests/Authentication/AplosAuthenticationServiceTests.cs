@@ -116,8 +116,118 @@ public sealed class AplosAuthenticationServiceTests
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.GetAccessTokenAsync());
+
+            Assert.Equal(
+                0,
+                handler.CallCount);
+
+            Assert.Equal(
+                0,
+                decryptor.CallCount);
     }
 
+    [Fact]
+public async Task GetAccessTokenAsync_ThrowsWhenPrivateKeyIsMissing()
+{
+    var handler =
+        new StubHttpMessageHandler(
+            _ => new HttpResponseMessage(
+                HttpStatusCode.OK));
+
+    using var httpClient =
+        new HttpClient(handler);
+
+    var decryptor =
+        new StubTokenDecryptor(
+            "encrypted-token",
+            "private-key",
+            "decrypted-token");
+
+    using var cache =
+        new MemoryCache(
+            new MemoryCacheOptions());
+
+    var options =
+        Options.Create(
+            new AplosOptions
+            {
+                BaseUrl =
+                    "https://app.aplos.com/hermes/api/v1",
+                ClientId = "test-client-id",
+                PrivateKey = ""
+            });
+
+    var service =
+        new AplosAuthenticationService(
+            httpClient,
+            decryptor,
+            cache,
+            options);
+
+    await Assert.ThrowsAsync<InvalidOperationException>(
+        () =>
+            service.GetAccessTokenAsync());
+
+    Assert.Equal(
+        0,
+        handler.CallCount);
+
+    Assert.Equal(
+        0,
+        decryptor.CallCount);
+}
+
+[Fact]
+public async Task GetAccessTokenAsync_ThrowsWhenBaseUrlIsMissing()
+{
+    var handler =
+        new StubHttpMessageHandler(
+            _ => new HttpResponseMessage(
+                HttpStatusCode.OK));
+
+    using var httpClient =
+        new HttpClient(handler);
+
+    var decryptor =
+        new StubTokenDecryptor(
+            "encrypted-token",
+            "private-key",
+            "decrypted-token");
+
+    using var cache =
+        new MemoryCache(
+            new MemoryCacheOptions());
+
+    var options =
+        Options.Create(
+            new AplosOptions
+            {
+                BaseUrl = "",
+                ClientId = "test-client-id",
+                PrivateKey = "private-key"
+            });
+
+    var service =
+        new AplosAuthenticationService(
+            httpClient,
+            decryptor,
+            cache,
+            options);
+
+    await Assert.ThrowsAsync<InvalidOperationException>(
+        () =>
+            service.GetAccessTokenAsync());
+
+    Assert.Equal(
+        0,
+        handler.CallCount);
+
+    Assert.Equal(
+        0,
+        decryptor.CallCount);
+}
+
+    
     private sealed class StubHttpMessageHandler
         : HttpMessageHandler
     {
