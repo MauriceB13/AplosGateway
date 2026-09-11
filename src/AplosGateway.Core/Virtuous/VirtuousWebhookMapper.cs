@@ -73,8 +73,27 @@ public sealed class VirtuousWebhookMapper
         }
 
         var designation =
-            request.Gift.GiftDesignations
-                .FirstOrDefault();
+    request.Gift.GiftDesignations
+        .FirstOrDefault();
+
+if (designation is not null)
+{
+    if (designation.GiftId != request.Gift.Id)
+    {
+        throw new InvalidOperationException(
+            $"Virtuous designation gift ID " +
+            $"'{designation.GiftId}' does not match " +
+            $"gift ID '{request.Gift.Id}'.");
+    }
+
+    if (designation.AmountDesignated != request.Gift.Amount)
+    {
+        throw new InvalidOperationException(
+            $"Virtuous designation amount " +
+            $"'{designation.AmountDesignated}' does not match " +
+            $"gift amount '{request.Gift.Amount}'.");
+    }
+}
 
         return new VirtuousGift
         {

@@ -337,6 +337,48 @@ public void Map_MultipleDesignations_ThrowsInvalidOperationException()
     }
 
     [Fact]
+public void Map_DesignationGiftIdDoesNotMatch_ThrowsInvalidOperationException()
+{
+    var request =
+        CreateValidRequest();
+
+    request.Gift.GiftDesignations[0].GiftId = 99999;
+
+    var mapper =
+        new VirtuousWebhookMapper();
+
+    var exception =
+        Assert.Throws<InvalidOperationException>(
+            () => mapper.Map(request));
+
+    Assert.Contains(
+        "does not match",
+        exception.Message,
+        StringComparison.OrdinalIgnoreCase);
+}
+
+[Fact]
+public void Map_DesignationAmountDoesNotMatch_ThrowsInvalidOperationException()
+{
+    var request =
+        CreateValidRequest();
+
+    request.Gift.GiftDesignations[0].AmountDesignated = 100m;
+
+    var mapper =
+        new VirtuousWebhookMapper();
+
+    var exception =
+        Assert.Throws<InvalidOperationException>(
+            () => mapper.Map(request));
+
+    Assert.Contains(
+        "designation amount",
+        exception.Message,
+        StringComparison.OrdinalIgnoreCase);
+}
+
+    [Fact]
     public void Map_UnsupportedOrganization_ThrowsInvalidOperationException()
     {
         var request =
