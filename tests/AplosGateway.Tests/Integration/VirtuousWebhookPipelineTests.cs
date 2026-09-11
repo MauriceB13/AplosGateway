@@ -147,6 +147,110 @@ public async Task ProcessGift_Success_ReturnsStablePublicResponse()
             response.StatusCode);
     }
 
+[Fact]
+public async Task ProcessGift_MissingAuthorizationHeader_ReturnsUnauthorized()
+{
+    using var factory =
+        new WebApplicationFactory<Program>()
+            .WithWebHostBuilder(
+                builder =>
+                {
+                    builder.UseEnvironment("Testing");
+                });
+
+    using var client =
+        factory.CreateClient(
+            new WebApplicationFactoryClientOptions
+            {
+                AllowAutoRedirect = false
+            });
+
+    var response =
+        await client.PostAsJsonAsync(
+            "/api/virtuous/gift",
+            CreateWebhookRequest());
+
+    Assert.Equal(
+        HttpStatusCode.Unauthorized,
+        response.StatusCode);
+
+    var json =
+        await response.Content.ReadAsStringAsync();
+
+    Assert.Contains(
+        "Missing authorization header.",
+        json,
+        StringComparison.Ordinal);
+}
+
+[Fact]
+public async Task ProcessGift_InvalidApiKey_ReturnsUnauthorized()
+{
+    using var factory =
+        new WebApplicationFactory<Program>()
+            .WithWebHostBuilder(
+                builder =>
+                {
+                    builder.UseEnvironment("Testing");
+                });
+
+    using var client =
+        factory.CreateClient(
+            new WebApplicationFactoryClientOptions
+            {
+                AllowAutoRedirect = false
+            });
+
+    client.DefaultRequestHeaders.Authorization =
+        new AuthenticationHeaderValue(
+            "Bearer",
+            "wrong-api-key");
+
+    var response =
+        await client.PostAsJsonAsync(
+            "/api/virtuous/gift",
+            CreateWebhookRequest());
+
+    Assert.Equal(
+        HttpStatusCode.Unauthorized,
+        response.StatusCode);
+
+    var json =
+        await response.Content.ReadAsStringAsync();
+
+    Assert.Contains(
+        "Invalid API key.",
+        json,
+        StringComparison.Ordinal);
+}
+
+[Fact]
+public async Task Health_DoesNotRequireAuthorization()
+{
+    using var factory =
+        new WebApplicationFactory<Program>()
+            .WithWebHostBuilder(
+                builder =>
+                {
+                    builder.UseEnvironment("Testing");
+                });
+
+    using var client =
+        factory.CreateClient(
+            new WebApplicationFactoryClientOptions
+            {
+                AllowAutoRedirect = false
+            });
+
+    var response =
+        await client.GetAsync(
+            "/health");
+
+    Assert.Equal(
+        HttpStatusCode.OK,
+        response.StatusCode);
+}
+
     private static VirtuousGiftWebhookRequest
         CreateWebhookRequest()
     {

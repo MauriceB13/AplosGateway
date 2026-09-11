@@ -29,8 +29,16 @@ public static class ServiceCollectionExtensions
         services.Configure<GatewayOptions>(
             configuration.GetSection(GatewayOptions.SectionName));
 
-        services.Configure<SecurityOptions>(
-            configuration.GetSection(SecurityOptions.SectionName));
+        services
+    .AddOptions<SecurityOptions>()
+    .Bind(
+        configuration.GetSection(
+            SecurityOptions.SectionName))
+    .Validate(
+        options =>
+            !string.IsNullOrWhiteSpace(
+                options.ApiKey),
+        "Security:ApiKey must be configured.");
 
         services.Configure<AplosOptions>(
             configuration.GetSection(AplosOptions.SectionName));
