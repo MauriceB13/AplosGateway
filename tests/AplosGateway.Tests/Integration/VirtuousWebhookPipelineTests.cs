@@ -7,6 +7,8 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Configuration;
+
 
 namespace AplosGateway.Tests.Integration;
 
@@ -21,6 +23,17 @@ public async Task ProcessGift_Success_ReturnsStablePublicResponse()
                 builder =>
                 {
                     builder.UseEnvironment("Testing");
+
+                    builder.ConfigureAppConfiguration(
+    (_, configuration) =>
+    {
+        configuration.AddInMemoryCollection(
+            new Dictionary<string, string?>
+            {
+                ["Security:ApiKey"] =
+                    "local-dev-key-12345"
+            });
+    });
 
                     builder.ConfigureServices(
                         services =>
@@ -113,6 +126,17 @@ public async Task ProcessGift_Success_ReturnsStablePublicResponse()
                 {
                     builder.UseEnvironment("Testing");
 
+                    builder.ConfigureAppConfiguration(
+    (_, configuration) =>
+    {
+        configuration.AddInMemoryCollection(
+            new Dictionary<string, string?>
+            {
+                ["Security:ApiKey"] =
+                    "local-dev-key-12345"
+            });
+    });
+
                     builder.ConfigureServices(services =>
                     {
                         services.RemoveAll<IVirtuousGiftService>();
@@ -145,6 +169,38 @@ public async Task ProcessGift_Success_ReturnsStablePublicResponse()
         Assert.Equal(
             HttpStatusCode.InternalServerError,
             response.StatusCode);
+
+            var json =
+            await response.Content.ReadAsStringAsync();
+
+        using var document =
+            JsonDocument.Parse(json);
+
+        var root =
+            document.RootElement;
+
+        Assert.Equal(
+            "An unexpected error occurred.",
+            root.GetProperty("error").GetString());
+
+        Assert.True(
+            root.TryGetProperty(
+                "traceId",
+                out var traceId));
+
+        Assert.False(
+            string.IsNullOrWhiteSpace(
+                traceId.GetString()));
+
+        Assert.DoesNotContain(
+            "Sensitive downstream detail",
+            json,
+            StringComparison.OrdinalIgnoreCase);
+
+        Assert.DoesNotContain(
+            "secret-token-12345",
+            json,
+            StringComparison.OrdinalIgnoreCase);
     }
 
 [Fact]
@@ -156,6 +212,17 @@ public async Task ProcessGift_MissingAuthorizationHeader_ReturnsUnauthorized()
                 builder =>
                 {
                     builder.UseEnvironment("Testing");
+
+                    builder.ConfigureAppConfiguration(
+    (_, configuration) =>
+    {
+        configuration.AddInMemoryCollection(
+            new Dictionary<string, string?>
+            {
+                ["Security:ApiKey"] =
+                    "local-dev-key-12345"
+            });
+    });
                 });
 
     using var client =
@@ -192,6 +259,17 @@ public async Task ProcessGift_InvalidApiKey_ReturnsUnauthorized()
                 builder =>
                 {
                     builder.UseEnvironment("Testing");
+
+                    builder.ConfigureAppConfiguration(
+    (_, configuration) =>
+    {
+        configuration.AddInMemoryCollection(
+            new Dictionary<string, string?>
+            {
+                ["Security:ApiKey"] =
+                    "local-dev-key-12345"
+            });
+    });
                 });
 
     using var client =
@@ -233,6 +311,17 @@ public async Task Health_DoesNotRequireAuthorization()
                 builder =>
                 {
                     builder.UseEnvironment("Testing");
+
+                    builder.ConfigureAppConfiguration(
+    (_, configuration) =>
+    {
+        configuration.AddInMemoryCollection(
+            new Dictionary<string, string?>
+            {
+                ["Security:ApiKey"] =
+                    "local-dev-key-12345"
+            });
+    });
                 });
 
     using var client =
@@ -314,7 +403,7 @@ public async Task Health_DoesNotRequireAuthorization()
             CancellationToken cancellationToken = default)
         {
             throw new InvalidOperationException(
-                "Aplos unavailable.");
+                "Sensitive downstream detail: secret-token-12345");
         }
     }
 
