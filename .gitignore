@@ -485,3 +485,9 @@ $RECYCLE.BIN/
 
 # Local secrets
 Secrets/
+
+# Runtime data
+Data/
+**/Data/
+*.db-shm
+*.db-wal
