@@ -232,6 +232,77 @@ public sealed class AplosApiClientTests
                 ""));
     }
 
+    [Fact]
+    public async Task PostAsync_AplosFailure_DoesNotExposeResponseBody()
+{
+    const string sensitiveResponse =
+        """
+        {
+          "error": "Sensitive downstream detail",
+          "token": "secret-token-12345"
+        }
+        """;
+
+    var handler =
+        new StubHttpMessageHandler(
+            _ => Task.FromResult(
+                new HttpResponseMessage(
+                    HttpStatusCode.BadRequest)
+                {
+                    Content =
+                        new StringContent(
+                            sensitiveResponse)
+                }));
+
+    using var httpClient =
+        new HttpClient(handler);
+
+    var authenticationService =
+        new StubAplosAuthenticationService(
+            "test-access-token");
+
+    var options =
+        Options.Create(
+            new AplosOptions
+            {
+                BaseUrl =
+                    "https://app.aplos.com/hermes/api/v1"
+            });
+
+    var client =
+        new AplosApiClient(
+            httpClient,
+            authenticationService,
+            options);
+
+    var exception =
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () =>
+                client.PostAsync(
+                    "transactions",
+                    """{"note":"test"}"""));
+
+    Assert.Contains(
+        "HTTP 400",
+        exception.Message,
+        StringComparison.Ordinal);
+
+    Assert.Contains(
+        "BadRequest",
+        exception.Message,
+        StringComparison.Ordinal);
+
+    Assert.DoesNotContain(
+        "Sensitive downstream detail",
+        exception.Message,
+        StringComparison.OrdinalIgnoreCase);
+
+    Assert.DoesNotContain(
+        "secret-token-12345",
+        exception.Message,
+        StringComparison.OrdinalIgnoreCase);
+}
+
     private sealed class StubHttpMessageHandler
         : HttpMessageHandler
     {

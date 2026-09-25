@@ -113,11 +113,11 @@ public sealed class AplosApiClient : IAplosApiClient
             cancellationToken);
 
     if (!response.IsSuccessStatusCode)
-    {
-        throw new InvalidOperationException(
-            $"Aplos returned HTTP {(int)response.StatusCode} " +
-            $"({response.StatusCode}). Response: {responseContent}");
-    }
+{
+    throw new InvalidOperationException(
+        $"Aplos returned HTTP {(int)response.StatusCode} " +
+        $"({response.StatusCode}).");
+}
 
     return responseContent;
 }
