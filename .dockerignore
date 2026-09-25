@@ -1,0 +1,37 @@
+# Git
+.git
+.gitignore
+
+# Local secrets and environment files
+Secrets/
+.env
+.env.*
+
+# Runtime data
+Data/
+**/Data/
+*.db-shm
+*.db-wal
+
+# .NET build output
+**/bin/
+**/obj/
+artifacts/
+
+# IDE and editor files
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# Test and coverage output
+TestResults/
+**/TestResults/
+coverage*.json
+coverage*.xml
+coverage*.info
+
+# Logs and temporary files
+*.log
+*.tmp
