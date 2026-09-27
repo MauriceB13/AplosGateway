@@ -3,155 +3,167 @@ using AplosGateway.Core.Transactions;
 using AplosGateway.Core.Virtuous;
 using AplosGateway.Infrastructure.Virtuous;
 using Microsoft.Extensions.Options;
+using Npgsql;
 
 namespace AplosGateway.Tests.Virtuous;
 
+[Collection("PostgreSQL Integration")]
 public sealed class VirtuousGiftRestartPersistenceTests
 {
+    private static string ConnectionString =>
+        Environment.GetEnvironmentVariable(
+            "Idempotency__ConnectionString")
+        ?? throw new InvalidOperationException(
+            "Idempotency__ConnectionString must be configured to run PostgreSQL integration tests.");
+
+    [Trait("Category", "PostgreSqlIntegration")]
     [Fact]
     public async Task ProcessGiftAsync_AfterRestart_DoesNotPostDuplicate()
     {
-        var databasePath =
-            Path.Combine(
-                Path.GetTempPath(),
-                $"aplosgateway-restart-test-{Guid.NewGuid():N}.db");
+        await ClearDatabaseAsync();
 
-        var connectionString =
-            $"Data Source={databasePath};Pooling=False";
-
-        try
-        {
-            var options =
-                Options.Create(
-                    new IdempotencyOptions
-                    {
-                        ConnectionString =
-                            connectionString
-                    });
-
-            var transaction =
-                new AplosTransactionRequest
+        var options =
+            Options.Create(
+                new IdempotencyOptions
                 {
-                    Note = "Mapped transaction"
-                };
+                    ConnectionString =
+                        ConnectionString
+                });
 
-            var gift =
-                new VirtuousGift
-                {
-                    Id = 12345,
-                    ContactName = "Ray Test",
-                    GiftDateUtc =
-                        new DateTime(
-                            2026,
-                            8,
-                            28,
-                            0,
-                            0,
-                            0,
-                            DateTimeKind.Utc),
-                    Amount = 1.00m
-                };
-
-            var firstMapper =
-                new StubMapper(transaction);
-
-            var firstTransactionService =
-                new StubTransactionService(
-                    """
-                    {
-                      "status": 200,
-                      "data": {
-                        "transaction": {
-                          "id": 70064235
-                        }
-                      }
-                    }
-                    """);
-
-            var firstStore =
-                new SqliteVirtuousGiftIdempotencyStore(
-                    options);
-
-            var responseParser =
-                new AplosTransactionResponseParser();
-
-            var firstService =
-                new VirtuousGiftService(
-                    firstMapper,
-                    firstTransactionService,
-                    firstStore,
-                    responseParser);
-
-            var firstResult =
-                await firstService.ProcessGiftAsync(
-                    gift);
-
-            Assert.Equal(
-                1,
-                firstTransactionService.CallCount);
-
-            var secondMapper =
-                new StubMapper(transaction);
-
-            var secondTransactionService =
-                new StubTransactionService(
-                    """
-                    {
-                      "status": 200,
-                      "data": {
-                        "transaction": {
-                          "id": 99999999
-                        }
-                      }
-                    }
-                    """);
-
-            var secondStore =
-                new SqliteVirtuousGiftIdempotencyStore(
-                    options);
-
-            var secondService =
-                new VirtuousGiftService(
-                    secondMapper,
-                    secondTransactionService,
-                    secondStore,
-                    responseParser);
-
-            var secondResult =
-                await secondService.ProcessGiftAsync(
-                    gift);
-
-            Assert.Equal(
-                firstResult.Status,
-                secondResult.Status);
-
-            Assert.Equal(
-                firstResult.GiftId,
-                secondResult.GiftId);
-
-            Assert.Equal(
-                firstResult.AplosTransactionId,
-                secondResult.AplosTransactionId);
-
-            Assert.Equal(
-                70064235,
-                secondResult.AplosTransactionId);
-
-            Assert.Equal(
-                0,
-                secondTransactionService.CallCount);
-
-            Assert.Equal(
-                0,
-                secondMapper.CallCount);
-        }
-        finally
-        {
-            if (File.Exists(databasePath))
+        var transaction =
+            new AplosTransactionRequest
             {
-                File.Delete(databasePath);
-            }
-        }
+                Note = "Mapped transaction"
+            };
+
+        var gift =
+            new VirtuousGift
+            {
+                Id = 12345,
+                ContactName = "Ray Test",
+                GiftDateUtc =
+                    new DateTime(
+                        2026,
+                        8,
+                        28,
+                        0,
+                        0,
+                        0,
+                        DateTimeKind.Utc),
+                Amount = 1.00m
+            };
+
+        var firstMapper =
+            new StubMapper(transaction);
+
+        var firstTransactionService =
+            new StubTransactionService(
+                """
+                {
+                  "status": 200,
+                  "data": {
+                    "transaction": {
+                      "id": 70064235
+                    }
+                  }
+                }
+                """);
+
+        var firstStore =
+            new PostgresVirtuousGiftIdempotencyStore(
+                options);
+
+        var responseParser =
+            new AplosTransactionResponseParser();
+
+        var firstService =
+            new VirtuousGiftService(
+                firstMapper,
+                firstTransactionService,
+                firstStore,
+                responseParser);
+
+        var firstResult =
+            await firstService.ProcessGiftAsync(
+                gift);
+
+        Assert.Equal(
+            1,
+            firstTransactionService.CallCount);
+
+        var secondMapper =
+            new StubMapper(transaction);
+
+        var secondTransactionService =
+            new StubTransactionService(
+                """
+                {
+                  "status": 200,
+                  "data": {
+                    "transaction": {
+                      "id": 99999999
+                    }
+                  }
+                }
+                """);
+
+        var secondStore =
+            new PostgresVirtuousGiftIdempotencyStore(
+                options);
+
+        var secondService =
+            new VirtuousGiftService(
+                secondMapper,
+                secondTransactionService,
+                secondStore,
+                responseParser);
+
+        var secondResult =
+            await secondService.ProcessGiftAsync(
+                gift);
+
+        Assert.Equal(
+            firstResult.Status,
+            secondResult.Status);
+
+        Assert.Equal(
+            firstResult.GiftId,
+            secondResult.GiftId);
+
+        Assert.Equal(
+            firstResult.AplosTransactionId,
+            secondResult.AplosTransactionId);
+
+        Assert.Equal(
+            70064235,
+            secondResult.AplosTransactionId);
+
+        Assert.Equal(
+            0,
+            secondTransactionService.CallCount);
+
+        Assert.Equal(
+            0,
+            secondMapper.CallCount);
+    }
+
+    private static async Task ClearDatabaseAsync()
+    {
+        await using var connection =
+            new NpgsqlConnection(
+                ConnectionString);
+
+        await connection.OpenAsync();
+
+        await using var command =
+            connection.CreateCommand();
+
+        command.CommandText =
+            """
+            DROP TABLE IF EXISTS virtuous_gift_idempotency;
+            """;
+
+        await command.ExecuteNonQueryAsync();
     }
 
     private sealed class StubMapper

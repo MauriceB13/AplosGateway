@@ -27,12 +27,7 @@ ENV ASPNETCORE_HTTP_PORTS=8080
 
 COPY --from=build /app/publish .
 
-RUN mkdir -p /app/Data \
-    && chown -R app:app /app/Data
-
 EXPOSE 8080
-
-VOLUME ["/app/Data"]
 
 USER app
 

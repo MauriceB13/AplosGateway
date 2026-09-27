@@ -86,7 +86,7 @@ public static class ServiceCollectionExtensions
 
     services.AddSingleton<
     IVirtuousGiftIdempotencyStore,
-    SqliteVirtuousGiftIdempotencyStore>();
+    PostgresVirtuousGiftIdempotencyStore>();
 
     services.AddSingleton<
     IVirtuousGiftTransactionMapper,

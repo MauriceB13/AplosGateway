@@ -46,7 +46,7 @@ by the deployment environment when necessary:
 | `TransactionMapping__DepositAccountNumber` | Aplos deposit account number |
 | `TransactionMapping__IncomeAccountNumber` | Aplos income account number |
 | `TransactionMapping__FundId` | Aplos API fund ID |
-| `Idempotency__ConnectionString` | SQLite idempotency database connection string |
+| `Idempotency__ConnectionString` | PostgreSQL connection string used for Virtuous gift idempotency |
 | `Gateway__Name` | Gateway name reported by the liveness endpoint |
 | `Gateway__Version` | Gateway version reported by the liveness endpoint |
 
@@ -70,18 +70,20 @@ rather than a normal readiness failure.
 
 ## Runtime data
 
-AplosGateway uses SQLite to persist Virtuous gift idempotency records.
+AplosGateway uses PostgreSQL to persist Virtuous gift idempotency records.
 
-The default connection string is:
+Configure the PostgreSQL connection through the deployment environment:
 
-`Data Source=Data/aplosgateway.db`
+`Idempotency__ConnectionString=Host=<host>;Port=5432;Database=<database>;Username=<username>;Password=<password>`
 
-The `Data` directory must use persistent storage in production. Losing this
-database can cause the gateway to lose its record of previously processed
-Virtuous gifts.
+The connection string should be supplied as an environment variable or deployment
+secret and must not be committed to source control.
 
-The `Data` directory, `.env` files, and the local `Secrets` directory are
-excluded from source control.
+PostgreSQL provides durable idempotency storage independently of the gateway
+container. This allows the gateway container to be replaced or restarted without
+losing its record of successfully processed Virtuous gifts.
+
+`.env` files and the local `Secrets` directory are excluded from source control.
 
 ## Secret handling
 

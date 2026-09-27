@@ -49,7 +49,7 @@ public sealed class HealthPipelineTests
                                             "492387",
 
                                         ["Idempotency:ConnectionString"] =
-                                            "Data Source=Data/test.db"
+                                            "Host=localhost;Port=5432;Database=test;Username=test;Password=test"
                                     });
                             });
                     });
@@ -123,7 +123,7 @@ public async Task Ready_MissingAplosPrivateKey_ReturnsServiceUnavailable()
                                         "492387",
 
                                     ["Idempotency:ConnectionString"] =
-                                        "Data Source=Data/test.db"
+                                        "Host=localhost;Port=5432;Database=test;Username=test;Password=test"
                                 });
                         });
                 });

@@ -7,12 +7,6 @@ Secrets/
 .env
 .env.*
 
-# Runtime data
-Data/
-**/Data/
-*.db-shm
-*.db-wal
-
 # .NET build output
 **/bin/
 **/obj/
