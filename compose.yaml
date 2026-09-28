@@ -1,0 +1,31 @@
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    restart: unless-stopped
+
+    ports:
+      - "${GATEWAY_PORT:-8080}:8080"
+
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_HTTP_PORTS: 8080
+
+      Gateway__Name: "${Gateway__Name:-AplosGateway}"
+
+      Security__ApiKey: "${Security__ApiKey:?Security__ApiKey is required}"
+
+      Aplos__BaseUrl: "${Aplos__BaseUrl:-https://app.aplos.com/hermes/api/v1}"
+      Aplos__ClientId: "${Aplos__ClientId:?Aplos__ClientId is required}"
+      Aplos__PrivateKey: "${Aplos__PrivateKey:?Aplos__PrivateKey is required}"
+      Aplos__AllowTransactionPosting: "${Aplos__AllowTransactionPosting:-false}"
+
+      Virtuous__OrganizationId: "${Virtuous__OrganizationId:?Virtuous__OrganizationId is required}"
+
+      TransactionMapping__DepositAccountNumber: "${TransactionMapping__DepositAccountNumber:?TransactionMapping__DepositAccountNumber is required}"
+      TransactionMapping__IncomeAccountNumber: "${TransactionMapping__IncomeAccountNumber:?TransactionMapping__IncomeAccountNumber is required}"
+      TransactionMapping__FundId: "${TransactionMapping__FundId:?TransactionMapping__FundId is required}"
+
+      ProcessingLedger__ConnectionString: "${ProcessingLedger__ConnectionString:?ProcessingLedger__ConnectionString is required}"

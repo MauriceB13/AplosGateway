@@ -55,6 +55,67 @@ The Virtuous organization ID and all transaction mapping values must be greater
 than zero. The gateway validates these values during startup rather than relying
 on customer-specific defaults in source control.
 
+## Per-customer deployment
+
+AplosGateway uses one application image with isolated runtime configuration for
+each customer. Customer-specific credentials, Virtuous organization IDs,
+transaction mappings, and PostgreSQL connection strings must not be built into
+the image or committed to source control.
+
+`compose.yaml` provides the deployment template. `.env.example` documents the
+runtime configuration required for a customer deployment.
+
+To prepare a customer configuration, copy the example file to an ignored
+customer-specific file:
+
+```powershell
+Copy-Item .env.example .env.customer-name
+```
+
+Populate `.env.customer-name` with that customer's configuration and secrets.
+Files matching `.env.*` are ignored by Git, except for the tracked
+`.env.example`.
+
+Each customer deployment should use a unique Compose project name:
+
+```powershell
+docker compose `
+    -p aplos-customer-name `
+    --env-file .env.customer-name `
+    up -d
+```
+
+The project name isolates the customer's Compose container and network
+resources. Each deployment must also use its own gateway API key, Aplos
+credentials, Virtuous organization ID, transaction mapping, and PostgreSQL
+database credentials.
+
+If multiple customer deployments run on the same Docker host, assign a unique
+`GATEWAY_PORT` to each deployment. Production platforms that provide routing
+or customer-specific hostnames may handle external port routing separately.
+
+New customer configurations should leave:
+
+```text
+Aplos__AllowTransactionPosting=false
+```
+
+until the customer's configuration, accounting mappings, health endpoints, and
+integration behavior have been verified. Enabling transaction posting is a
+deliberate activation step.
+
+Validate a customer configuration before deployment:
+
+```powershell
+docker compose `
+    -p aplos-customer-name `
+    --env-file .env.customer-name `
+    config --quiet
+```
+
+The deployment template rejects missing required customer configuration during
+Compose interpolation.
+
 ## Health endpoints
 
 ### `GET /health`
