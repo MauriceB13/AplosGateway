@@ -34,10 +34,11 @@ Production deployments should initially use:
 Enable transaction posting only after deployment configuration and connectivity
 have been verified.
 
-### Non-secret configuration
+### Deployment configuration
 
-The following values have defaults in `appsettings.json` and may be overridden
-by the deployment environment when necessary:
+Customer-specific configuration must be supplied by the deployment environment.
+Tracked configuration does not contain customer-specific Virtuous organization,
+Aplos account mapping, or database values.
 
 | Environment variable | Purpose |
 | --- | --- |
@@ -46,9 +47,13 @@ by the deployment environment when necessary:
 | `TransactionMapping__DepositAccountNumber` | Aplos deposit account number |
 | `TransactionMapping__IncomeAccountNumber` | Aplos income account number |
 | `TransactionMapping__FundId` | Aplos API fund ID |
-| `Idempotency__ConnectionString` | PostgreSQL connection string used for Virtuous gift idempotency |
+| `ProcessingLedger__ConnectionString` | PostgreSQL connection string used for the Virtuous gift processing ledger |
 | `Gateway__Name` | Gateway name reported by the liveness endpoint |
 | `Gateway__Version` | Gateway version reported by the liveness endpoint |
+
+The Virtuous organization ID and all transaction mapping values must be greater
+than zero. The gateway validates these values during startup rather than relying
+on customer-specific defaults in source control.
 
 ## Health endpoints
 
@@ -70,18 +75,19 @@ rather than a normal readiness failure.
 
 ## Runtime data
 
-AplosGateway uses PostgreSQL to persist Virtuous gift idempotency records.
+AplosGateway uses PostgreSQL as a durable Virtuous gift processing ledger.
 
 Configure the PostgreSQL connection through the deployment environment:
 
-`Idempotency__ConnectionString=Host=<host>;Port=5432;Database=<database>;Username=<username>;Password=<password>`
+`ProcessingLedger__ConnectionString=Host=<host>;Port=5432;Database=<database>;Username=<username>;Password=<password>`
 
 The connection string should be supplied as an environment variable or deployment
 secret and must not be committed to source control.
 
-PostgreSQL provides durable idempotency storage independently of the gateway
-container. This allows the gateway container to be replaced or restarted without
-losing its record of successfully processed Virtuous gifts.
+The processing ledger persists gift processing state independently of the gateway
+container, including completed processing and outcomes that require
+reconciliation. This allows the gateway container to be replaced or restarted
+without losing its durable processing history.
 
 `.env` files and the local `Secrets` directory are excluded from source control.
 

@@ -25,15 +25,10 @@ public async Task ProcessGift_Success_ReturnsStablePublicResponse()
                     builder.UseEnvironment("Testing");
 
                     builder.ConfigureAppConfiguration(
-    (_, configuration) =>
-    {
-        configuration.AddInMemoryCollection(
-            new Dictionary<string, string?>
-            {
-                ["Security:ApiKey"] =
-                    "local-dev-key-12345"
-            });
-    });
+                        (_, configuration) =>
+                        {
+                            ConfigureTestSettings(configuration);
+                        });
 
                     builder.ConfigureServices(
                         services =>
@@ -81,7 +76,7 @@ public async Task ProcessGift_Success_ReturnsStablePublicResponse()
             Organization =
                 new VirtuousOrganization
                 {
-                    Id = 7472,
+                    Id = 1001,
                     Name = "Maine Central Institute"
                 }
         };
@@ -127,15 +122,10 @@ public async Task ProcessGift_Success_ReturnsStablePublicResponse()
                     builder.UseEnvironment("Testing");
 
                     builder.ConfigureAppConfiguration(
-    (_, configuration) =>
-    {
-        configuration.AddInMemoryCollection(
-            new Dictionary<string, string?>
-            {
-                ["Security:ApiKey"] =
-                    "local-dev-key-12345"
-            });
-    });
+                        (_, configuration) =>
+                        {
+                            ConfigureTestSettings(configuration);
+                        });
 
                     builder.ConfigureServices(services =>
                     {
@@ -214,15 +204,10 @@ public async Task ProcessGift_MissingAuthorizationHeader_ReturnsUnauthorized()
                     builder.UseEnvironment("Testing");
 
                     builder.ConfigureAppConfiguration(
-    (_, configuration) =>
-    {
-        configuration.AddInMemoryCollection(
-            new Dictionary<string, string?>
-            {
-                ["Security:ApiKey"] =
-                    "local-dev-key-12345"
-            });
-    });
+                        (_, configuration) =>
+                        {
+                            ConfigureTestSettings(configuration);
+                        });
                 });
 
     using var client =
@@ -261,15 +246,10 @@ public async Task ProcessGift_InvalidApiKey_ReturnsUnauthorized()
                     builder.UseEnvironment("Testing");
 
                     builder.ConfigureAppConfiguration(
-    (_, configuration) =>
-    {
-        configuration.AddInMemoryCollection(
-            new Dictionary<string, string?>
-            {
-                ["Security:ApiKey"] =
-                    "local-dev-key-12345"
-            });
-    });
+                        (_, configuration) =>
+                        {
+                            ConfigureTestSettings(configuration);
+                        });
                 });
 
     using var client =
@@ -313,15 +293,10 @@ public async Task Health_DoesNotRequireAuthorization()
                     builder.UseEnvironment("Testing");
 
                     builder.ConfigureAppConfiguration(
-    (_, configuration) =>
-    {
-        configuration.AddInMemoryCollection(
-            new Dictionary<string, string?>
-            {
-                ["Security:ApiKey"] =
-                    "local-dev-key-12345"
-            });
-    });
+                        (_, configuration) =>
+                        {
+                            ConfigureTestSettings(configuration);
+                        });
                 });
 
     using var client =
@@ -340,6 +315,29 @@ public async Task Health_DoesNotRequireAuthorization()
         response.StatusCode);
 }
 
+    private static void ConfigureTestSettings(
+        IConfigurationBuilder configuration)
+    {
+            configuration.AddInMemoryCollection(
+                new Dictionary<string, string?>
+                {
+                    ["Security:ApiKey"] =
+                        "local-dev-key-12345",
+
+                    ["Virtuous:OrganizationId"] =
+                        "1001",
+
+                    ["TransactionMapping:DepositAccountNumber"] =
+                        "2001",
+
+                    ["TransactionMapping:IncomeAccountNumber"] =
+                        "4001",
+
+                    ["TransactionMapping:FundId"] =
+                        "5001"
+                });
+    }
+
     private static VirtuousGiftWebhookRequest
         CreateWebhookRequest()
     {
@@ -356,7 +354,7 @@ public async Task Health_DoesNotRequireAuthorization()
             Organization =
                 new VirtuousOrganization
                 {
-                    Id = 7472,
+                    Id = 1001,
                     Name = "Maine Central Institute"
                 },
 
