@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using AplosGateway.Core.Virtuous;
 
 namespace AplosGateway.Api.Middleware;
 
@@ -30,28 +31,54 @@ public sealed class ExceptionHandlingMiddleware
                 context.Request.Method,
                 context.Request.Path);
 
-            await HandleExceptionAsync(context);
+            await HandleExceptionAsync(
+            context,
+            exception);
         }
     }
 
-    private static async Task HandleExceptionAsync(HttpContext context)
+    private static async Task HandleExceptionAsync(
+    HttpContext context,
+    Exception exception)
+{
+    if (context.Response.HasStarted)
     {
-        if (context.Response.HasStarted)
+        return;
+    }
+
+    context.Response.Clear();
+    context.Response.ContentType = "application/json";
+
+    object response;
+
+    if (exception is VirtuousGiftProcessingStateException processingException)
+    {
+        context.Response.StatusCode =
+            (int)HttpStatusCode.Conflict;
+
+        response = new
         {
-            return;
-        }
+            error = processingException.Message,
+            giftId = processingException.GiftId,
+            processingStatus =
+                processingException.Status.ToString(),
+            traceId = context.TraceIdentifier
+        };
+    }
+    else
+    {
+        context.Response.StatusCode =
+            (int)HttpStatusCode.InternalServerError;
 
-        context.Response.Clear();
-        context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-        context.Response.ContentType = "application/json";
-
-        var response = new
+        response = new
         {
             error = "An unexpected error occurred.",
             traceId = context.TraceIdentifier
         };
-
-        await context.Response.WriteAsync(
-            JsonSerializer.Serialize(response));
     }
+
+    await context.Response.WriteAsync(
+        JsonSerializer.Serialize(response));
+}
+
 }

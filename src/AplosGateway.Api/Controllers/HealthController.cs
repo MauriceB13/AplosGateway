@@ -14,7 +14,7 @@ public sealed class HealthController : ControllerBase
     private readonly AplosOptions _aplosOptions;
     private readonly VirtuousOptions _virtuousOptions;
     private readonly TransactionMappingOptions _transactionMappingOptions;
-    private readonly IdempotencyOptions _idempotencyOptions;
+    private readonly ProcessingLedgerOptions _processingLedgerOptions;
 
     public HealthController(
         IOptions<GatewayOptions> gatewayOptions,
@@ -22,14 +22,14 @@ public sealed class HealthController : ControllerBase
         IOptions<AplosOptions> aplosOptions,
         IOptions<VirtuousOptions> virtuousOptions,
         IOptions<TransactionMappingOptions> transactionMappingOptions,
-        IOptions<IdempotencyOptions> idempotencyOptions)
+        IOptions<ProcessingLedgerOptions> processingLedgerOptions)
     {
         _gatewayOptions = gatewayOptions.Value;
         _securityOptions = securityOptions.Value;
         _aplosOptions = aplosOptions.Value;
         _virtuousOptions = virtuousOptions.Value;
         _transactionMappingOptions = transactionMappingOptions.Value;
-        _idempotencyOptions = idempotencyOptions.Value;
+        _processingLedgerOptions = processingLedgerOptions.Value;
     }
 
     [HttpGet]
@@ -56,7 +56,7 @@ public sealed class HealthController : ControllerBase
             _transactionMappingOptions.IncomeAccountNumber > 0 &&
             _transactionMappingOptions.FundId > 0 &&
             !string.IsNullOrWhiteSpace(
-                _idempotencyOptions.ConnectionString);
+                _processingLedgerOptions.ConnectionString);
 
         if (!isReady)
         {

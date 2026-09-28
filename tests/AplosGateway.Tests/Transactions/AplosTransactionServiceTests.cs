@@ -181,7 +181,7 @@ public sealed class AplosTransactionServiceTests
             };
 
         var exception =
-            await Assert.ThrowsAsync<InvalidOperationException>(
+            await Assert.ThrowsAsync<AplosPostNotDispatchedException>(
                 () => service.CreateTransactionAsync(request));
 
         Assert.Equal(
@@ -193,10 +193,102 @@ public sealed class AplosTransactionServiceTests
             apiClient.PostCallCount);
     }
 
+    [Fact]
+public async Task CreateTransactionAsync_PreservesRejectedException()
+{
+    var expectedException =
+        new AplosPostRejectedException(
+            System.Net.HttpStatusCode.BadRequest);
+
+    var apiClient =
+        new StubAplosApiClient(
+            expectedException);
+
+    var options =
+        Options.Create(
+            new AplosOptions
+            {
+                AllowTransactionPosting = true
+            });
+
+    var service =
+        new AplosTransactionService(
+            apiClient,
+            options);
+
+    var request =
+        new AplosTransactionRequest
+        {
+            Note = "Virtuous Gift 12345"
+        };
+
+    var actualException =
+        await Assert.ThrowsAsync<AplosPostRejectedException>(
+            () => service.CreateTransactionAsync(request));
+
+    Assert.Same(
+        expectedException,
+        actualException);
+
+    Assert.Equal(
+        1,
+        apiClient.PostCallCount);
+}
+
+[Fact]
+public async Task CreateTransactionAsync_PreservesOutcomeUnknownException()
+{
+    var expectedException =
+        new AplosPostOutcomeUnknownException(
+            "Aplos transaction outcome is unknown.");
+
+    var apiClient =
+        new StubAplosApiClient(
+            expectedException);
+
+    var options =
+        Options.Create(
+            new AplosOptions
+            {
+                AllowTransactionPosting = true
+            });
+
+    var service =
+        new AplosTransactionService(
+            apiClient,
+            options);
+
+    var request =
+        new AplosTransactionRequest
+        {
+            Note = "Virtuous Gift 12345"
+        };
+
+    var actualException =
+        await Assert.ThrowsAsync<AplosPostOutcomeUnknownException>(
+            () => service.CreateTransactionAsync(request));
+
+    Assert.Same(
+        expectedException,
+        actualException);
+
+    Assert.Equal(
+        1,
+        apiClient.PostCallCount);
+}
+
     private sealed class StubAplosApiClient
-        : IAplosApiClient
+    : IAplosApiClient
+{
+    private readonly Exception? _postException;
+
+    public StubAplosApiClient(
+        Exception? postException = null)
     {
-        public int PostCallCount { get; private set; }
+        _postException = postException;
+    }
+
+    public int PostCallCount { get; private set; }
 
         public string? LastRelativePath { get; private set; }
 
@@ -221,6 +313,12 @@ public sealed class AplosTransactionServiceTests
 
             LastJsonContent =
                 jsonContent;
+
+            if (_postException is not null)
+            {
+                return Task.FromException<string>(
+                    _postException);
+            }
 
             return Task.FromResult(
                 """{"status":"created"}""");

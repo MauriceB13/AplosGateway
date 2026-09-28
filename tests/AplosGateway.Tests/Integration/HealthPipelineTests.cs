@@ -48,7 +48,7 @@ public sealed class HealthPipelineTests
                                         ["TransactionMapping:FundId"] =
                                             "492387",
 
-                                        ["Idempotency:ConnectionString"] =
+                                        ["ProcessingLedger:ConnectionString"] =
                                             "Host=localhost;Port=5432;Database=test;Username=test;Password=test"
                                     });
                             });
@@ -122,7 +122,7 @@ public async Task Ready_MissingAplosPrivateKey_ReturnsServiceUnavailable()
                                     ["TransactionMapping:FundId"] =
                                         "492387",
 
-                                    ["Idempotency:ConnectionString"] =
+                                    ["ProcessingLedger:ConnectionString"] =
                                         "Host=localhost;Port=5432;Database=test;Username=test;Password=test"
                                 });
                         });

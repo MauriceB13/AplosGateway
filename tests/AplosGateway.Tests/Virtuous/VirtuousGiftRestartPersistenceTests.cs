@@ -12,9 +12,9 @@ public sealed class VirtuousGiftRestartPersistenceTests
 {
     private static string ConnectionString =>
         Environment.GetEnvironmentVariable(
-            "Idempotency__ConnectionString")
+            "ProcessingLedger__ConnectionString")
         ?? throw new InvalidOperationException(
-            "Idempotency__ConnectionString must be configured to run PostgreSQL integration tests.");
+            "ProcessingLedger__ConnectionString must be configured to run PostgreSQL integration tests.");
 
     [Trait("Category", "PostgreSqlIntegration")]
     [Fact]
@@ -24,7 +24,7 @@ public sealed class VirtuousGiftRestartPersistenceTests
 
         var options =
             Options.Create(
-                new IdempotencyOptions
+                new ProcessingLedgerOptions
                 {
                     ConnectionString =
                         ConnectionString
@@ -69,19 +69,19 @@ public sealed class VirtuousGiftRestartPersistenceTests
                 }
                 """);
 
-        var firstStore =
-            new PostgresVirtuousGiftIdempotencyStore(
-                options);
+        var firstLedger =
+        new PostgresVirtuousGiftProcessingLedger(
+            options);
 
         var responseParser =
             new AplosTransactionResponseParser();
 
         var firstService =
-            new VirtuousGiftService(
-                firstMapper,
-                firstTransactionService,
-                firstStore,
-                responseParser);
+        new VirtuousGiftService(
+            firstMapper,
+            firstTransactionService,
+            firstLedger,
+            responseParser);
 
         var firstResult =
             await firstService.ProcessGiftAsync(
@@ -107,16 +107,16 @@ public sealed class VirtuousGiftRestartPersistenceTests
                 }
                 """);
 
-        var secondStore =
-            new PostgresVirtuousGiftIdempotencyStore(
-                options);
+        var secondLedger =
+        new PostgresVirtuousGiftProcessingLedger(
+            options);
 
         var secondService =
-            new VirtuousGiftService(
-                secondMapper,
-                secondTransactionService,
-                secondStore,
-                responseParser);
+        new VirtuousGiftService(
+            secondMapper,
+            secondTransactionService,
+            secondLedger,
+            responseParser);
 
         var secondResult =
             await secondService.ProcessGiftAsync(
@@ -159,9 +159,9 @@ public sealed class VirtuousGiftRestartPersistenceTests
             connection.CreateCommand();
 
         command.CommandText =
-            """
-            DROP TABLE IF EXISTS virtuous_gift_idempotency;
-            """;
+        """
+        DROP TABLE IF EXISTS virtuous_gift_processing;
+        """;
 
         await command.ExecuteNonQueryAsync();
     }

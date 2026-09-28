@@ -80,13 +80,13 @@ public static class ServiceCollectionExtensions
     IAplosTransactionService,
     AplosTransactionService>();
 
-    services.Configure<IdempotencyOptions>(
+    services.Configure<ProcessingLedgerOptions>(
     configuration.GetSection(
-        IdempotencyOptions.SectionName));
+       ProcessingLedgerOptions.SectionName));
 
     services.AddSingleton<
-    IVirtuousGiftIdempotencyStore,
-    PostgresVirtuousGiftIdempotencyStore>();
+    IVirtuousGiftProcessingLedger,
+    PostgresVirtuousGiftProcessingLedger>();
 
     services.AddSingleton<
     IVirtuousGiftTransactionMapper,

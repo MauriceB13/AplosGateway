@@ -28,12 +28,23 @@ public sealed class AplosTransactionService
 
         if (!_options.AllowTransactionPosting)
         {
-            throw new InvalidOperationException(
+            throw new AplosPostNotDispatchedException(
                 "Aplos transaction posting is disabled.");
         }
 
-        var json =
-            JsonSerializer.Serialize(request);
+        string json;
+
+        try
+        {
+            json =
+                JsonSerializer.Serialize(request);
+        }
+        catch (Exception exception)
+        {
+            throw new AplosPostNotDispatchedException(
+                "The Aplos transaction request could not be serialized and was not dispatched.",
+                exception);
+        }
 
         return await _aplosApiClient.PostAsync(
             "transactions",
