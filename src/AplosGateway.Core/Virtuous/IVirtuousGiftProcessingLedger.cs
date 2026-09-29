@@ -4,6 +4,12 @@ public interface IVirtuousGiftProcessingLedger
 {
     Task<VirtuousGiftProcessingClaim> BeginProcessingAsync(
         long giftId,
+        string giftFingerprint,
+        CancellationToken cancellationToken = default);
+
+    Task<VirtuousGiftProcessingClaim> RetryFailedAsync(
+        long giftId,
+        string giftFingerprint,
         CancellationToken cancellationToken = default);
 
     Task<VirtuousGiftProcessingRecord> CompleteAsync(

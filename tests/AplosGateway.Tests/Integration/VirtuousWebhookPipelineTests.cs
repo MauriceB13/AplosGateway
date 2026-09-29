@@ -112,6 +112,75 @@ public async Task ProcessGift_Success_ReturnsStablePublicResponse()
         root.GetProperty("aplosTransactionId").GetInt64());
 }
 
+[Fact]
+public async Task RetryFailedGift_Success_ReturnsStablePublicResponse()
+{
+    using var factory =
+        new WebApplicationFactory<Program>()
+            .WithWebHostBuilder(
+                builder =>
+                {
+                    builder.UseEnvironment("Testing");
+
+                    builder.ConfigureAppConfiguration(
+                        (_, configuration) =>
+                        {
+                            ConfigureTestSettings(configuration);
+                        });
+
+                    builder.ConfigureServices(
+                        services =>
+                        {
+                            services.RemoveAll<IVirtuousGiftService>();
+
+                            services.AddSingleton<IVirtuousGiftService>(
+                                new SuccessfulGiftService());
+                        });
+                });
+
+    using var client =
+        factory.CreateClient(
+            new WebApplicationFactoryClientOptions
+            {
+                AllowAutoRedirect = false
+            });
+
+    client.DefaultRequestHeaders.Authorization =
+        new AuthenticationHeaderValue(
+            "Bearer",
+            "local-dev-key-12345");
+
+    var response =
+        await client.PostAsJsonAsync(
+            "/api/virtuous/gift/retry",
+            CreateWebhookRequest());
+
+    Assert.Equal(
+        HttpStatusCode.OK,
+        response.StatusCode);
+
+    var json =
+        await response.Content.ReadAsStringAsync();
+
+    using var document =
+        JsonDocument.Parse(json);
+
+    var root =
+        document.RootElement;
+
+    Assert.Equal(
+        "processed",
+        root.GetProperty("status").GetString());
+
+    Assert.Equal(
+        38241,
+        root.GetProperty("giftId").GetInt64());
+
+    Assert.Equal(
+        70064235,
+        root.GetProperty("aplosTransactionId").GetInt64());
+}
+
     [Fact]
     public async Task ProcessGift_OperationalFailure_ReturnsInternalServerError()
     {
@@ -283,6 +352,164 @@ public async Task ProcessGift_InvalidApiKey_ReturnsUnauthorized()
 }
 
 [Fact]
+public async Task RetryFailedGift_RequiresReconciliation_ReturnsConflict()
+{
+    using var factory =
+        new WebApplicationFactory<Program>()
+            .WithWebHostBuilder(
+                builder =>
+                {
+                    builder.UseEnvironment("Testing");
+
+                    builder.ConfigureAppConfiguration(
+                        (_, configuration) =>
+                        {
+                            ConfigureTestSettings(configuration);
+                        });
+
+                    builder.ConfigureServices(
+                        services =>
+                        {
+                            services.RemoveAll<IVirtuousGiftService>();
+
+                            services.AddSingleton<IVirtuousGiftService>(
+                                new ReconciliationGiftService());
+                        });
+                });
+
+    using var client =
+        factory.CreateClient(
+            new WebApplicationFactoryClientOptions
+            {
+                AllowAutoRedirect = false
+            });
+
+    client.DefaultRequestHeaders.Authorization =
+        new AuthenticationHeaderValue(
+            "Bearer",
+            "local-dev-key-12345");
+
+    var response =
+        await client.PostAsJsonAsync(
+            "/api/virtuous/gift/retry",
+            CreateWebhookRequest());
+
+    Assert.Equal(
+        HttpStatusCode.Conflict,
+        response.StatusCode);
+
+    var json =
+        await response.Content.ReadAsStringAsync();
+
+    using var document =
+        JsonDocument.Parse(json);
+
+    var root =
+        document.RootElement;
+
+    Assert.Equal(
+        38241,
+        root.GetProperty("giftId").GetInt64());
+
+    Assert.Equal(
+        "RequiresReconciliation",
+        root.GetProperty("processingStatus").GetString());
+
+    Assert.True(
+        root.TryGetProperty(
+            "traceId",
+            out var traceId));
+
+    Assert.False(
+        string.IsNullOrWhiteSpace(
+            traceId.GetString()));
+}
+
+[Fact]
+public async Task RetryFailedGift_FingerprintMismatch_ReturnsConflict()
+{
+    using var factory =
+        new WebApplicationFactory<Program>()
+            .WithWebHostBuilder(
+                builder =>
+                {
+                    builder.UseEnvironment("Testing");
+
+                    builder.ConfigureAppConfiguration(
+                        (_, configuration) =>
+                        {
+                            ConfigureTestSettings(configuration);
+                        });
+
+                    builder.ConfigureServices(
+                        services =>
+                        {
+                            services.RemoveAll<IVirtuousGiftService>();
+
+                            services.AddSingleton<IVirtuousGiftService>(
+                                new FingerprintMismatchGiftService());
+                        });
+                });
+
+    using var client =
+        factory.CreateClient(
+            new WebApplicationFactoryClientOptions
+            {
+                AllowAutoRedirect = false
+            });
+
+    client.DefaultRequestHeaders.Authorization =
+        new AuthenticationHeaderValue(
+            "Bearer",
+            "local-dev-key-12345");
+
+    var response =
+        await client.PostAsJsonAsync(
+            "/api/virtuous/gift/retry",
+            CreateWebhookRequest());
+
+    Assert.Equal(
+        HttpStatusCode.Conflict,
+        response.StatusCode);
+
+    var json =
+        await response.Content.ReadAsStringAsync();
+
+    using var document =
+        JsonDocument.Parse(json);
+
+    var root =
+        document.RootElement;
+
+    Assert.Equal(
+        38241,
+        root.GetProperty("giftId").GetInt64());
+
+    Assert.Equal(
+        "Virtuous gift 38241 does not match the originally received gift.",
+        root.GetProperty("error").GetString());
+
+    Assert.False(
+        root.TryGetProperty(
+            "processingStatus",
+            out _));
+
+    Assert.True(
+        root.TryGetProperty(
+            "traceId",
+            out var traceId));
+
+    Assert.False(
+        string.IsNullOrWhiteSpace(
+            traceId.GetString()));
+
+    Assert.DoesNotContain(
+        "fingerprint",
+        json,
+        StringComparison.OrdinalIgnoreCase);
+}
+
+[Fact]
 public async Task Health_DoesNotRequireAuthorization()
 {
     using var factory =
@@ -403,12 +630,74 @@ public async Task Health_DoesNotRequireAuthorization()
             throw new InvalidOperationException(
                 "Sensitive downstream detail: secret-token-12345");
         }
+
+        public Task<VirtuousGiftProcessingResult> RetryFailedGiftAsync(
+            VirtuousGift gift,
+            CancellationToken cancellationToken = default)
+        {
+            throw new InvalidOperationException(
+                "Sensitive downstream detail: secret-token-12345");
+        }
     }
+
+    private sealed class ReconciliationGiftService
+    : IVirtuousGiftService
+{
+    public Task<VirtuousGiftProcessingResult> ProcessGiftAsync(
+        VirtuousGift gift,
+        CancellationToken cancellationToken = default)
+    {
+        throw new InvalidOperationException(
+            "This test service supports retry only.");
+    }
+
+    public Task<VirtuousGiftProcessingResult> RetryFailedGiftAsync(
+        VirtuousGift gift,
+        CancellationToken cancellationToken = default)
+    {
+        throw new VirtuousGiftProcessingStateException(
+            gift.Id,
+            VirtuousGiftProcessingStatus.RequiresReconciliation);
+    }
+}
+    
+    private sealed class FingerprintMismatchGiftService
+    : IVirtuousGiftService
+{
+    public Task<VirtuousGiftProcessingResult> ProcessGiftAsync(
+        VirtuousGift gift,
+        CancellationToken cancellationToken = default)
+    {
+        throw new InvalidOperationException(
+            "This test service supports retry only.");
+    }
+
+    public Task<VirtuousGiftProcessingResult> RetryFailedGiftAsync(
+        VirtuousGift gift,
+        CancellationToken cancellationToken = default)
+    {
+        throw new VirtuousGiftFingerprintMismatchException(
+            gift.Id);
+    }
+}
 
     private sealed class SuccessfulGiftService
     : IVirtuousGiftService
 {
     public Task<VirtuousGiftProcessingResult> ProcessGiftAsync(
+        VirtuousGift gift,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(
+            new VirtuousGiftProcessingResult
+            {
+                Status = "processed",
+                GiftId = gift.Id,
+                AplosTransactionId = 70064235
+            });
+    }
+
+    public Task<VirtuousGiftProcessingResult> RetryFailedGiftAsync(
         VirtuousGift gift,
         CancellationToken cancellationToken = default)
     {

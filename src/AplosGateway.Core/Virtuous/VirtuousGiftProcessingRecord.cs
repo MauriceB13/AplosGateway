@@ -4,6 +4,8 @@ public sealed class VirtuousGiftProcessingRecord
 {
     public long GiftId { get; init; }
 
+    public string? GiftFingerprint { get; init; }
+
     public Guid AttemptId { get; init; }
 
     public VirtuousGiftProcessingStatus Status { get; init; }

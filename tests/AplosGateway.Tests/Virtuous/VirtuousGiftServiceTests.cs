@@ -712,6 +712,489 @@ public async Task ProcessGiftAsync_RejectedPost_MarksFailedAndDoesNotRetryDuplic
                     null!));
     }
 
+        [Fact]
+public async Task RetryFailedGiftAsync_FailedGift_RetriesAndCompletes()
+{
+    var transaction =
+        new AplosTransactionRequest
+        {
+            Note = "Mapped transaction"
+        };
+
+    var mapper =
+        new StubMapper(
+            transaction);
+
+    var transactionService =
+        new NotDispatchedThenSuccessfulTransactionService();
+
+    var processingLedger =
+        new InMemoryVirtuousGiftProcessingLedger();
+
+    var responseParser =
+        new AplosTransactionResponseParser();
+
+    var service =
+        new VirtuousGiftService(
+            mapper,
+            transactionService,
+            processingLedger,
+            responseParser);
+
+    var gift =
+        new VirtuousGift
+        {
+            Id = 12345,
+            ContactName = "Ray Test",
+            GiftDateUtc =
+                new DateTime(
+                    2026,
+                    8,
+                    28,
+                    0,
+                    0,
+                    0,
+                    DateTimeKind.Utc),
+            Amount = 1.00m
+        };
+
+    await Assert.ThrowsAsync<AplosPostNotDispatchedException>(
+        () =>
+            service.ProcessGiftAsync(
+                gift));
+
+    var result =
+        await service.RetryFailedGiftAsync(
+            gift);
+
+    Assert.Equal(
+        "processed",
+        result.Status);
+
+    Assert.Equal(
+        gift.Id,
+        result.GiftId);
+
+    Assert.Equal(
+        70064235,
+        result.AplosTransactionId);
+
+    Assert.Equal(
+        2,
+        transactionService.CallCount);
+
+    Assert.Equal(
+        2,
+        mapper.CallCount);
+
+    var duplicateResult =
+        await service.ProcessGiftAsync(
+            gift);
+
+    Assert.Equal(
+        result.AplosTransactionId,
+        duplicateResult.AplosTransactionId);
+
+    Assert.Equal(
+        2,
+        transactionService.CallCount);
+
+    Assert.Equal(
+        2,
+        mapper.CallCount);
+}
+
+    [Fact]
+    public async Task RetryFailedGiftAsync_ChangedGift_IsRejectedBeforeAplosPost()
+{
+    var transaction =
+        new AplosTransactionRequest
+        {
+            Note = "Mapped transaction"
+        };
+
+    var mapper =
+        new StubMapper(
+            transaction);
+
+    var transactionService =
+        new NotDispatchedThenSuccessfulTransactionService();
+
+    var processingLedger =
+        new InMemoryVirtuousGiftProcessingLedger();
+
+    var responseParser =
+        new AplosTransactionResponseParser();
+
+    var service =
+        new VirtuousGiftService(
+            mapper,
+            transactionService,
+            processingLedger,
+            responseParser);
+
+    var originalGift =
+        new VirtuousGift
+        {
+            Id = 12345,
+            ContactName = "Ray Test",
+            GiftDateUtc =
+                new DateTime(
+                    2026,
+                    8,
+                    28,
+                    0,
+                    0,
+                    0,
+                    DateTimeKind.Utc),
+            Amount = 1.00m
+        };
+
+    await Assert.ThrowsAsync<AplosPostNotDispatchedException>(
+        () =>
+            service.ProcessGiftAsync(
+                originalGift));
+
+    Assert.Equal(
+        1,
+        transactionService.CallCount);
+
+    Assert.Equal(
+        1,
+        mapper.CallCount);
+
+    var changedGift =
+        new VirtuousGift
+        {
+            Id = originalGift.Id,
+            ContactName = originalGift.ContactName,
+            GiftDateUtc = originalGift.GiftDateUtc,
+            Amount = 2.00m,
+            Project = originalGift.Project,
+            ProjectCode = originalGift.ProjectCode,
+            Segment = originalGift.Segment
+        };
+
+    var exception =
+        await Assert.ThrowsAsync<VirtuousGiftFingerprintMismatchException>(
+            () =>
+                service.RetryFailedGiftAsync(
+                    changedGift));
+
+    Assert.Equal(
+        originalGift.Id,
+        exception.GiftId);
+
+    Assert.Equal(
+        1,
+        transactionService.CallCount);
+
+    Assert.Equal(
+        1,
+        mapper.CallCount);
+}
+
+    [Fact]
+    public async Task ProcessGiftAsync_ExistingGiftWithChangedData_IsRejected()
+{
+    var transaction =
+        new AplosTransactionRequest
+        {
+            Note = "Mapped transaction"
+        };
+
+    var mapper =
+        new StubMapper(
+            transaction);
+
+    var transactionService =
+        new StubTransactionService(
+            """
+            {
+              "status": 200,
+              "data": {
+                "transaction": {
+                  "id": 70064235
+                }
+              }
+            }
+            """);
+
+    var processingLedger =
+        new InMemoryVirtuousGiftProcessingLedger();
+
+    var responseParser =
+        new AplosTransactionResponseParser();
+
+    var service =
+        new VirtuousGiftService(
+            mapper,
+            transactionService,
+            processingLedger,
+            responseParser);
+
+    var originalGift =
+        new VirtuousGift
+        {
+            Id = 12345,
+            ContactName = "Ray Test",
+            GiftDateUtc =
+                new DateTime(
+                    2026,
+                    8,
+                    28,
+                    0,
+                    0,
+                    0,
+                    DateTimeKind.Utc),
+            Amount = 1.00m
+        };
+
+    var result =
+        await service.ProcessGiftAsync(
+            originalGift);
+
+    Assert.Equal(
+        70064235,
+        result.AplosTransactionId);
+
+    Assert.Equal(
+        1,
+        transactionService.CallCount);
+
+    Assert.Equal(
+        1,
+        mapper.CallCount);
+
+    var changedGift =
+        new VirtuousGift
+        {
+            Id = originalGift.Id,
+            ContactName = originalGift.ContactName,
+            GiftDateUtc = originalGift.GiftDateUtc,
+            Amount = 2.00m,
+            Project = originalGift.Project,
+            ProjectCode = originalGift.ProjectCode,
+            Segment = originalGift.Segment
+        };
+
+    var exception =
+        await Assert.ThrowsAsync<VirtuousGiftFingerprintMismatchException>(
+            () =>
+                service.ProcessGiftAsync(
+                    changedGift));
+
+    Assert.Equal(
+        originalGift.Id,
+        exception.GiftId);
+
+    Assert.Equal(
+        1,
+        transactionService.CallCount);
+
+    Assert.Equal(
+        1,
+        mapper.CallCount);
+}
+    
+        [Fact]
+        public async Task RetryFailedGiftAsync_RetryNotDispatched_RemainsFailed()
+        {
+            var transaction =
+                new AplosTransactionRequest
+                {
+                    Note = "Mapped transaction"
+                };
+
+            var mapper =
+                new StubMapper(
+                    transaction);
+
+            var transactionService =
+                new NotDispatchedTransactionService();
+
+            var processingLedger =
+                new InMemoryVirtuousGiftProcessingLedger();
+
+            var responseParser =
+                new AplosTransactionResponseParser();
+
+            var service =
+                new VirtuousGiftService(
+                    mapper,
+                    transactionService,
+                    processingLedger,
+                    responseParser);
+
+            var gift =
+                new VirtuousGift
+                {
+                    Id = 12345,
+                    ContactName = "Ray Test",
+                    GiftDateUtc =
+                        new DateTime(
+                            2026,
+                            8,
+                            28,
+                            0,
+                            0,
+                            0,
+                            DateTimeKind.Utc),
+                    Amount = 1.00m
+                };
+
+            await Assert.ThrowsAsync<AplosPostNotDispatchedException>(
+                () =>
+                    service.ProcessGiftAsync(
+                        gift));
+
+            await Assert.ThrowsAsync<AplosPostNotDispatchedException>(
+                () =>
+                    service.RetryFailedGiftAsync(
+                        gift));
+
+            Assert.Equal(
+                2,
+                transactionService.CallCount);
+
+            Assert.Equal(
+                2,
+                mapper.CallCount);
+
+            var stateException =
+                await Assert.ThrowsAsync<VirtuousGiftProcessingStateException>(
+                    () =>
+                        service.ProcessGiftAsync(
+                            gift));
+
+            Assert.Equal(
+                gift.Id,
+                stateException.GiftId);
+
+            Assert.Equal(
+                VirtuousGiftProcessingStatus.Failed,
+                stateException.Status);
+
+            Assert.Equal(
+                2,
+                transactionService.CallCount);
+
+            Assert.Equal(
+                2,
+                mapper.CallCount);
+        }
+
+        [Fact]
+        public async Task RetryFailedGiftAsync_UnknownRetryOutcome_RequiresReconciliationAndBlocksFurtherRetry()
+        {
+            var transaction =
+                new AplosTransactionRequest
+                {
+                    Note = "Mapped transaction"
+                };
+
+            var mapper =
+                new StubMapper(
+                    transaction);
+
+            var transactionService =
+                new NotDispatchedThenUnknownOutcomeTransactionService();
+
+            var processingLedger =
+                new InMemoryVirtuousGiftProcessingLedger();
+
+            var responseParser =
+                new AplosTransactionResponseParser();
+
+            var service =
+                new VirtuousGiftService(
+                    mapper,
+                    transactionService,
+                    processingLedger,
+                    responseParser);
+
+            var gift =
+                new VirtuousGift
+                {
+                    Id = 12345,
+                    ContactName = "Ray Test",
+                    GiftDateUtc =
+                        new DateTime(
+                            2026,
+                            8,
+                            28,
+                            0,
+                            0,
+                            0,
+                            DateTimeKind.Utc),
+                    Amount = 1.00m
+                };
+
+            await Assert.ThrowsAsync<AplosPostNotDispatchedException>(
+                () =>
+                    service.ProcessGiftAsync(
+                        gift));
+
+            await Assert.ThrowsAsync<AplosPostOutcomeUnknownException>(
+                () =>
+                    service.RetryFailedGiftAsync(
+                        gift));
+
+            Assert.Equal(
+                2,
+                transactionService.CallCount);
+
+            Assert.Equal(
+                2,
+                mapper.CallCount);
+
+            var retryException =
+                await Assert.ThrowsAsync<VirtuousGiftProcessingStateException>(
+                    () =>
+                        service.RetryFailedGiftAsync(
+                            gift));
+
+            Assert.Equal(
+                gift.Id,
+                retryException.GiftId);
+
+            Assert.Equal(
+                VirtuousGiftProcessingStatus.RequiresReconciliation,
+                retryException.Status);
+
+            Assert.Equal(
+                2,
+                transactionService.CallCount);
+
+            Assert.Equal(
+                2,
+                mapper.CallCount);
+        }
+
+        private sealed class NotDispatchedThenUnknownOutcomeTransactionService
+            : IAplosTransactionService
+        {
+            public int CallCount { get; private set; }
+
+            public Task<string> CreateTransactionAsync(
+                AplosTransactionRequest request,
+                CancellationToken cancellationToken = default)
+            {
+                CallCount++;
+
+                if (CallCount == 1)
+                {
+                    return Task.FromException<string>(
+                        new AplosPostNotDispatchedException(
+                            "The Aplos transaction request was not dispatched."));
+                }
+
+                return Task.FromException<string>(
+                    new AplosPostOutcomeUnknownException(
+                        "The Aplos transaction outcome is unknown."));
+            }
+        }
+    
     private sealed class StubMapper
         : IVirtuousGiftTransactionMapper
     {
@@ -870,13 +1353,25 @@ private sealed class RejectingTransactionService
         VirtuousGiftProcessingRecord> _records = new();
 
     public Task<VirtuousGiftProcessingClaim> BeginProcessingAsync(
-        long giftId,
-        CancellationToken cancellationToken = default)
+    long giftId,
+    string giftFingerprint,
+    CancellationToken cancellationToken = default)
     {
         if (_records.TryGetValue(
-                giftId,
-                out var existingRecord))
+        giftId,
+        out var existingRecord))
         {
+            if (string.IsNullOrWhiteSpace(
+                    existingRecord.GiftFingerprint)
+                || !string.Equals(
+                    existingRecord.GiftFingerprint,
+                    giftFingerprint,
+                    StringComparison.Ordinal))
+            {
+                throw new VirtuousGiftFingerprintMismatchException(
+                    giftId);
+            }
+
             return Task.FromResult(
                 new VirtuousGiftProcessingClaim
                 {
@@ -892,6 +1387,7 @@ private sealed class RejectingTransactionService
             new VirtuousGiftProcessingRecord
             {
                 GiftId = giftId,
+                GiftFingerprint = giftFingerprint,
                 AttemptId = Guid.NewGuid(),
                 Status =
                     VirtuousGiftProcessingStatus.Processing,
@@ -907,6 +1403,71 @@ private sealed class RejectingTransactionService
             new VirtuousGiftProcessingClaim
             {
                 Record = record,
+                ShouldProcess = true
+            });
+    }
+
+    public Task<VirtuousGiftProcessingClaim> RetryFailedAsync(
+    long giftId,
+    string giftFingerprint,
+    CancellationToken cancellationToken = default)
+    {
+        if (!_records.TryGetValue(
+                giftId,
+                out var current))
+        {
+            throw new InvalidOperationException(
+                $"Virtuous gift {giftId} does not have an existing processing record.");
+        }
+
+        if (current.Status !=
+            VirtuousGiftProcessingStatus.Failed)
+        {
+            throw new VirtuousGiftProcessingStateException(
+                giftId,
+                current.Status);
+        }
+
+        if (string.IsNullOrWhiteSpace(
+                current.GiftFingerprint)
+            || !string.Equals(
+                current.GiftFingerprint,
+                giftFingerprint,
+                StringComparison.Ordinal))
+        {
+            throw new VirtuousGiftFingerprintMismatchException(
+                giftId);
+        }
+
+        var now =
+            DateTime.UtcNow;
+
+        var retry =
+            new VirtuousGiftProcessingRecord
+            {
+                GiftId =
+                    current.GiftId,
+                GiftFingerprint =
+                    current.GiftFingerprint,
+                AttemptId =
+                    Guid.NewGuid(),
+                Status =
+                    VirtuousGiftProcessingStatus.Processing,
+                AttemptCount =
+                    current.AttemptCount + 1,
+                CreatedUtc =
+                    current.CreatedUtc,
+                LastAttemptUtc =
+                    now
+            };
+
+        _records[giftId] =
+            retry;
+
+        return Task.FromResult(
+            new VirtuousGiftProcessingClaim
+            {
+                Record = retry,
                 ShouldProcess = true
             });
     }
@@ -927,6 +1488,7 @@ private sealed class RejectingTransactionService
             new VirtuousGiftProcessingRecord
             {
                 GiftId = current.GiftId,
+                GiftFingerprint = current.GiftFingerprint,
                 AttemptId = current.AttemptId,
                 Status =
                     VirtuousGiftProcessingStatus.Completed,
@@ -966,6 +1528,7 @@ private sealed class RejectingTransactionService
             new VirtuousGiftProcessingRecord
             {
                 GiftId = current.GiftId,
+                GiftFingerprint = current.GiftFingerprint,
                 AttemptId = current.AttemptId,
                 Status =
                     VirtuousGiftProcessingStatus.Failed,
@@ -1001,6 +1564,7 @@ private sealed class RejectingTransactionService
             new VirtuousGiftProcessingRecord
             {
                 GiftId = current.GiftId,
+                GiftFingerprint = current.GiftFingerprint,
                 AttemptId = current.AttemptId,
                 Status =
                     VirtuousGiftProcessingStatus.RequiresReconciliation,
@@ -1056,6 +1620,38 @@ private sealed class UnexpectedFailureTransactionService
         return Task.FromException<string>(
             new InvalidOperationException(
                 "Simulated unexpected transaction failure."));
+    }
+}
+
+private sealed class NotDispatchedThenSuccessfulTransactionService
+    : IAplosTransactionService
+{
+    public int CallCount { get; private set; }
+
+    public Task<string> CreateTransactionAsync(
+        AplosTransactionRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        CallCount++;
+
+        if (CallCount == 1)
+        {
+            return Task.FromException<string>(
+                new AplosPostNotDispatchedException(
+                    "The Aplos transaction request was not dispatched."));
+        }
+
+        return Task.FromResult(
+            """
+            {
+              "status": 200,
+              "data": {
+                "transaction": {
+                  "id": 70064235
+                }
+              }
+            }
+            """);
     }
 }
 

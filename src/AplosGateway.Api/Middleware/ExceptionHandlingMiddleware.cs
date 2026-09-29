@@ -61,7 +61,20 @@ public sealed class ExceptionHandlingMiddleware
             error = processingException.Message,
             giftId = processingException.GiftId,
             processingStatus =
-                processingException.Status.ToString(),
+            processingException.Status.ToString(),
+            traceId = context.TraceIdentifier
+        };
+    }
+    else if (exception is
+        VirtuousGiftFingerprintMismatchException fingerprintException)
+    {
+        context.Response.StatusCode =
+            (int)HttpStatusCode.Conflict;
+
+        response = new
+        {
+            error = fingerprintException.Message,
+            giftId = fingerprintException.GiftId,
             traceId = context.TraceIdentifier
         };
     }

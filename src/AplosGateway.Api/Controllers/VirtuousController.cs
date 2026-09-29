@@ -50,6 +50,33 @@ public async Task<IActionResult> ProcessGift(
     }
 }
 
+        [HttpPost("gift/retry")]
+public async Task<IActionResult> RetryFailedGift(
+    [FromBody] VirtuousGiftWebhookRequest request,
+    CancellationToken cancellationToken)
+{
+    try
+    {
+        var gift =
+            _webhookMapper.Map(request);
+
+        var result =
+            await _giftService.RetryFailedGiftAsync(
+                gift,
+                cancellationToken);
+
+        return Ok(result);
+    }
+    catch (VirtuousWebhookValidationException exception)
+    {
+        return BadRequest(
+            new
+            {
+                error = exception.Message
+            });
+    }
+}
+
 [HttpPost("gift/preview")]
 public ActionResult<AplosTransactionRequest> PreviewGift(
     [FromBody] VirtuousGiftWebhookRequest request)

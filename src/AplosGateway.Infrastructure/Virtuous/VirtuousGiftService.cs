@@ -1,6 +1,6 @@
+using AplosGateway.Core.Aplos;
 using AplosGateway.Core.Transactions;
 using AplosGateway.Core.Virtuous;
-using AplosGateway.Core.Aplos;
 
 namespace AplosGateway.Infrastructure.Virtuous;
 
@@ -13,10 +13,10 @@ public sealed class VirtuousGiftService
     private readonly AplosTransactionResponseParser _responseParser;
 
     public VirtuousGiftService(
-    IVirtuousGiftTransactionMapper mapper,
-    IAplosTransactionService transactionService,
-    IVirtuousGiftProcessingLedger processingLedger,
-    AplosTransactionResponseParser responseParser)
+        IVirtuousGiftTransactionMapper mapper,
+        IAplosTransactionService transactionService,
+        IVirtuousGiftProcessingLedger processingLedger,
+        AplosTransactionResponseParser responseParser)
     {
         _mapper = mapper;
         _transactionService = transactionService;
@@ -25,141 +25,174 @@ public sealed class VirtuousGiftService
     }
 
     public async Task<VirtuousGiftProcessingResult> ProcessGiftAsync(
-    VirtuousGift gift,
-    CancellationToken cancellationToken = default)
-{
-    ArgumentNullException.ThrowIfNull(gift);
+        VirtuousGift gift,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(gift);
 
-    var claim =
-        await _processingLedger.BeginProcessingAsync(
+        var giftFingerprint =
+        VirtuousGiftFingerprint.Create(
+            gift);
+
+        var claim =
+            await _processingLedger.BeginProcessingAsync(
             gift.Id,
+            giftFingerprint,
             cancellationToken);
 
-    if (!claim.ShouldProcess)
-    {
-        if (claim.Record.Status ==
-                VirtuousGiftProcessingStatus.Completed
-            &&
-            claim.Record.AplosTransactionId.HasValue)
+        if (!claim.ShouldProcess)
         {
-            return new VirtuousGiftProcessingResult
+            if (claim.Record.Status ==
+                    VirtuousGiftProcessingStatus.Completed
+                &&
+                claim.Record.AplosTransactionId.HasValue)
             {
-                Status = "processed",
-                GiftId = gift.Id,
-                AplosTransactionId =
-                    claim.Record.AplosTransactionId.Value
-            };
+                return new VirtuousGiftProcessingResult
+                {
+                    Status = "processed",
+                    GiftId = gift.Id,
+                    AplosTransactionId =
+                        claim.Record.AplosTransactionId.Value
+                };
+            }
+
+            throw new VirtuousGiftProcessingStateException(
+                gift.Id,
+                claim.Record.Status);
         }
 
-        throw new VirtuousGiftProcessingStateException(
-            gift.Id,
-            claim.Record.Status);
+        return await ProcessClaimedGiftAsync(
+            gift,
+            claim,
+            cancellationToken);
     }
 
-    AplosTransactionRequest transaction;
-
-    try
+    public async Task<VirtuousGiftProcessingResult> RetryFailedGiftAsync(
+        VirtuousGift gift,
+        CancellationToken cancellationToken = default)
     {
-        transaction =
-            _mapper.Map(gift);
-    }
+        ArgumentNullException.ThrowIfNull(gift);
 
-    catch (Exception)
-{
-    await _processingLedger.FailAsync(
-        gift.Id,
-        claim.Record.AttemptId,
-        "The Virtuous gift could not be mapped to an Aplos transaction.",
-        cancellationToken);
+          var giftFingerprint =
+            VirtuousGiftFingerprint.Create(
+                gift);
 
-    throw;
-}
-
-    string rawResult;
-
-    try
-    {
-        rawResult =
-            await _transactionService.CreateTransactionAsync(
-                transaction,
+        var claim =
+            await _processingLedger.RetryFailedAsync(
+                gift.Id,
+                giftFingerprint,
                 cancellationToken);
+
+        return await ProcessClaimedGiftAsync(
+            gift,
+            claim,
+            cancellationToken);
     }
 
-    catch (AplosPostNotDispatchedException exception)
+    private async Task<VirtuousGiftProcessingResult> ProcessClaimedGiftAsync(
+        VirtuousGift gift,
+        VirtuousGiftProcessingClaim claim,
+        CancellationToken cancellationToken)
     {
-        await _processingLedger.FailAsync(
+        AplosTransactionRequest transaction;
+
+        try
+        {
+            transaction =
+                _mapper.Map(gift);
+        }
+        catch (Exception)
+        {
+            await _processingLedger.FailAsync(
+                gift.Id,
+                claim.Record.AttemptId,
+                "The Virtuous gift could not be mapped to an Aplos transaction.",
+                cancellationToken);
+
+            throw;
+        }
+
+        string rawResult;
+
+        try
+        {
+            rawResult =
+                await _transactionService.CreateTransactionAsync(
+                    transaction,
+                    cancellationToken);
+        }
+        catch (AplosPostNotDispatchedException exception)
+        {
+            await _processingLedger.FailAsync(
+                gift.Id,
+                claim.Record.AttemptId,
+                exception.Message,
+                cancellationToken);
+
+            throw;
+        }
+        catch (AplosPostRejectedException exception)
+        {
+            await _processingLedger.FailAsync(
+                gift.Id,
+                claim.Record.AttemptId,
+                exception.Message,
+                cancellationToken);
+
+            throw;
+        }
+        catch (AplosPostOutcomeUnknownException exception)
+        {
+            await _processingLedger.RequireReconciliationAsync(
+                gift.Id,
+                claim.Record.AttemptId,
+                exception.Message,
+                cancellationToken);
+
+            throw;
+        }
+        catch (Exception exception)
+        {
+            await _processingLedger.RequireReconciliationAsync(
+                gift.Id,
+                claim.Record.AttemptId,
+                "An unexpected error occurred while attempting the Aplos transaction.",
+                cancellationToken);
+
+            throw new AplosPostOutcomeUnknownException(
+                "The Aplos transaction outcome could not be confirmed.",
+                exception);
+        }
+
+        VirtuousGiftProcessingResult result;
+
+        try
+        {
+            result =
+                _responseParser.Parse(
+                    gift.Id,
+                    rawResult);
+        }
+        catch (Exception exception)
+        {
+            await _processingLedger.RequireReconciliationAsync(
+                gift.Id,
+                claim.Record.AttemptId,
+                "Aplos returned a successful response, but the transaction ID could not be confirmed.",
+                cancellationToken);
+
+            throw new AplosPostOutcomeUnknownException(
+                "Aplos returned a successful response, but the transaction ID could not be confirmed.",
+                exception);
+        }
+
+        await _processingLedger.CompleteAsync(
             gift.Id,
             claim.Record.AttemptId,
-            exception.Message,
+            result.AplosTransactionId,
+            rawResult,
             cancellationToken);
 
-        throw;
+        return result;
     }
-
-    catch (AplosPostRejectedException exception)
-    {
-        await _processingLedger.FailAsync(
-            gift.Id,
-            claim.Record.AttemptId,
-            exception.Message,
-            cancellationToken);
-
-        throw;
-    }
-
-    catch (AplosPostOutcomeUnknownException exception)
-{
-    await _processingLedger.RequireReconciliationAsync(
-        gift.Id,
-        claim.Record.AttemptId,
-        exception.Message,
-        cancellationToken);
-
-    throw;
-}
-
-catch (Exception exception)
-{
-    await _processingLedger.RequireReconciliationAsync(
-        gift.Id,
-        claim.Record.AttemptId,
-        "An unexpected error occurred while attempting the Aplos transaction.",
-        cancellationToken);
-
-    throw new AplosPostOutcomeUnknownException(
-        "The Aplos transaction outcome could not be confirmed.",
-        exception);
-}
-
-VirtuousGiftProcessingResult result;
-
-try
-{
-    result =
-        _responseParser.Parse(
-            gift.Id,
-            rawResult);
-}
-catch (Exception exception)
-{
-    await _processingLedger.RequireReconciliationAsync(
-        gift.Id,
-        claim.Record.AttemptId,
-        "Aplos returned a successful response, but the transaction ID could not be confirmed.",
-        cancellationToken);
-
-    throw new AplosPostOutcomeUnknownException(
-        "Aplos returned a successful response, but the transaction ID could not be confirmed.",
-        exception);
-}
-
-    await _processingLedger.CompleteAsync(
-        gift.Id,
-        claim.Record.AttemptId,
-        result.AplosTransactionId,
-        rawResult,
-        cancellationToken);
-
-    return result;
-}
 }

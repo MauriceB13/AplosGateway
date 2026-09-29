@@ -181,6 +181,146 @@ public async Task ProcessGift_UnsupportedEvent_ReturnsBadRequest()
 }  
 
 [Fact]
+public async Task RetryFailedGift_UnsupportedEvent_ReturnsBadRequest()
+{
+    var giftService =
+        new StubGiftService(
+            new VirtuousGiftProcessingResult
+            {
+                Status = "processed",
+                GiftId = 38241,
+                AplosTransactionId = 70064235
+            });
+
+    var transactionMapper =
+        new StubTransactionMapper(
+            new AplosTransactionRequest());
+
+    var webhookMapper =
+        new ThrowingWebhookMapper(
+            new VirtuousWebhookValidationException(
+                "Unsupported Virtuous event 'GiftUpdate'."));
+
+    var controller =
+        new VirtuousController(
+            giftService,
+            transactionMapper,
+            webhookMapper);
+
+    var request =
+        new VirtuousGiftWebhookRequest
+        {
+            Event = "GiftUpdate"
+        };
+
+    var result =
+        await controller.RetryFailedGift(
+            request,
+            CancellationToken.None);
+
+    var badRequest =
+        Assert.IsType<BadRequestObjectResult>(
+            result);
+
+    Assert.Equal(
+        400,
+        badRequest.StatusCode);
+
+    Assert.Equal(
+        0,
+        giftService.CallCount);
+
+    Assert.Equal(
+        0,
+        transactionMapper.CallCount);
+}
+
+[Fact]
+public async Task RetryFailedGift_MapsWebhook_AndRetriesGift()
+{
+    var mappedGift =
+        new VirtuousGift
+        {
+            Id = 38241,
+            ContactName = "John Smith",
+            GiftDateUtc =
+                new DateTime(
+                    2026,
+                    9,
+                    2,
+                    0,
+                    0,
+                    0,
+                    DateTimeKind.Utc),
+            Amount = 150m
+        };
+
+    var webhookMapper =
+        new StubWebhookMapper(
+            mappedGift);
+
+    var giftService =
+        new StubGiftService(
+            new VirtuousGiftProcessingResult
+            {
+                Status = "processed",
+                GiftId = 38241,
+                AplosTransactionId = 70064235
+            });
+
+    var controller =
+        new VirtuousController(
+            giftService,
+            new StubTransactionMapper(
+                new AplosTransactionRequest()),
+            webhookMapper);
+
+    var request =
+        CreateWebhookRequest();
+
+    var result =
+        await controller.RetryFailedGift(
+            request,
+            CancellationToken.None);
+
+    var okResult =
+        Assert.IsType<OkObjectResult>(
+            result);
+
+    var response =
+        Assert.IsType<VirtuousGiftProcessingResult>(
+            okResult.Value);
+
+    Assert.Equal(
+        "processed",
+        response.Status);
+
+    Assert.Equal(
+        38241,
+        response.GiftId);
+
+    Assert.Equal(
+        70064235,
+        response.AplosTransactionId);
+
+    Assert.Same(
+        request,
+        webhookMapper.LastRequest);
+
+    Assert.Same(
+        mappedGift,
+        giftService.LastGift);
+
+    Assert.Equal(
+        1,
+        webhookMapper.CallCount);
+
+    Assert.Equal(
+        1,
+        giftService.CallCount);
+}
+
+[Fact]
 public void PreviewGift_UnsupportedEvent_ReturnsBadRequest()
 {
     var giftService =
@@ -406,6 +546,44 @@ public async Task ProcessGift_MapsWebhook_AndProcessesGift()
             giftService.CallCount);
     }
 
+[Fact]
+public async Task RetryFailedGift_ProcessingStateFailure_IsNotConvertedToBadRequest()
+{
+    var gift =
+        new VirtuousGift
+        {
+            Id = 38241,
+            ContactName = "John Smith",
+            GiftDateUtc = DateTime.UtcNow,
+            Amount = 150m
+        };
+
+    var controller =
+        new VirtuousController(
+            new ReconciliationGiftService(),
+            new StubTransactionMapper(
+                new AplosTransactionRequest()),
+            new StubWebhookMapper(gift));
+
+    var request =
+        CreateWebhookRequest();
+
+    var exception =
+        await Assert.ThrowsAsync<VirtuousGiftProcessingStateException>(
+            () =>
+                controller.RetryFailedGift(
+                    request,
+                    CancellationToken.None));
+
+    Assert.Equal(
+        gift.Id,
+        exception.GiftId);
+
+    Assert.Equal(
+        VirtuousGiftProcessingStatus.RequiresReconciliation,
+        exception.Status);
+}
+
     private static VirtuousGiftWebhookRequest
         CreateWebhookRequest()
     {
@@ -570,6 +748,17 @@ public async Task ProcessGift_MapsWebhook_AndProcessesGift()
         return Task.FromResult(
             _result);
     }
+
+    public Task<VirtuousGiftProcessingResult> RetryFailedGiftAsync(
+        VirtuousGift gift,
+        CancellationToken cancellationToken = default)
+    {
+        LastGift = gift;
+        CallCount++;
+
+        return Task.FromResult(
+            _result);
+    }
 }
 
     private sealed class ThrowingWebhookMapper
@@ -590,10 +779,39 @@ public async Task ProcessGift_MapsWebhook_AndProcessesGift()
     }
 }
 
+        private sealed class ReconciliationGiftService
+    : IVirtuousGiftService
+{
+    public Task<VirtuousGiftProcessingResult> ProcessGiftAsync(
+        VirtuousGift gift,
+        CancellationToken cancellationToken = default)
+    {
+        throw new InvalidOperationException(
+            "This test service supports retry only.");
+    }
+
+    public Task<VirtuousGiftProcessingResult> RetryFailedGiftAsync(
+        VirtuousGift gift,
+        CancellationToken cancellationToken = default)
+    {
+        throw new VirtuousGiftProcessingStateException(
+            gift.Id,
+            VirtuousGiftProcessingStatus.RequiresReconciliation);
+    }
+}
+
 private sealed class ThrowingGiftService
     : IVirtuousGiftService
 {
     public Task<VirtuousGiftProcessingResult> ProcessGiftAsync(
+        VirtuousGift gift,
+        CancellationToken cancellationToken = default)
+    {
+        throw new InvalidOperationException(
+            "Aplos unavailable.");
+    }
+
+    public Task<VirtuousGiftProcessingResult> RetryFailedGiftAsync(
         VirtuousGift gift,
         CancellationToken cancellationToken = default)
     {

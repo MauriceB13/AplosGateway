@@ -20,14 +20,29 @@ public sealed class PostgresVirtuousGiftProcessingLedger
     }
 
     public async Task<VirtuousGiftProcessingClaim> BeginProcessingAsync(
-        long giftId,
-        CancellationToken cancellationToken = default)
+    long giftId,
+    string giftFingerprint,
+    CancellationToken cancellationToken = default)
     {
         if (giftId <= 0)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(giftId),
                 "Gift ID must be greater than zero.");
+        }
+
+        if (string.IsNullOrWhiteSpace(giftFingerprint))
+        {
+            throw new ArgumentException(
+                "Gift fingerprint cannot be empty.",
+                nameof(giftFingerprint));
+        }
+
+        if (string.IsNullOrWhiteSpace(giftFingerprint))
+        {
+            throw new ArgumentException(
+                "Gift fingerprint cannot be empty.",
+                nameof(giftFingerprint));
         }
 
         await EnsureDatabaseAsync(
@@ -61,24 +76,35 @@ public sealed class PostgresVirtuousGiftProcessingLedger
 
             VirtuousGiftProcessingClaim claim;
 
-            if (existingRecord is null)
+            if (existingRecord is not null)
             {
-                claim =
-                    await CreateProcessingRecordAsync(
-                        connection,
-                        transaction,
-                        giftId,
-                        cancellationToken);
-            }
+                if (string.IsNullOrWhiteSpace(
+                        existingRecord.GiftFingerprint)
+                    || !string.Equals(
+                        existingRecord.GiftFingerprint,
+                        giftFingerprint,
+                        StringComparison.Ordinal))
+                {
+                    throw new VirtuousGiftFingerprintMismatchException(
+                        giftId);
+                }
 
-            else
-            {
                 claim =
                     new VirtuousGiftProcessingClaim
                     {
                         Record = existingRecord,
                         ShouldProcess = false
                     };
+            }
+            else
+           {
+                claim =
+                    await CreateProcessingRecordAsync(
+                        connection,
+                        transaction,
+                        giftId,
+                        giftFingerprint,
+                        cancellationToken);
             }
 
             await transaction.CommitAsync(
@@ -94,6 +120,159 @@ public sealed class PostgresVirtuousGiftProcessingLedger
             throw;
         }
     }
+
+    public async Task<VirtuousGiftProcessingClaim> RetryFailedAsync(
+        long giftId,
+        string giftFingerprint,
+        CancellationToken cancellationToken = default)
+        {
+            if (giftId <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(giftId),
+                    "Gift ID must be greater than zero.");
+            }
+
+            await EnsureDatabaseAsync(
+                cancellationToken);
+
+            await using var connection =
+                new NpgsqlConnection(
+                    _connectionString);
+
+            await connection.OpenAsync(
+                cancellationToken);
+
+            await using var transaction =
+                await connection.BeginTransactionAsync(
+                    cancellationToken);
+
+            try
+            {
+                await AcquireGiftLockAsync(
+                    connection,
+                    transaction,
+                    giftId,
+                    cancellationToken);
+
+                var existingRecord =
+                    await GetRecordAsync(
+                        connection,
+                        transaction,
+                        giftId,
+                        cancellationToken);
+
+                if (existingRecord is null)
+                {
+                    throw new InvalidOperationException(
+                        $"Virtuous gift {giftId} does not have an existing processing record.");
+                }
+
+                if (existingRecord.Status !=
+                    VirtuousGiftProcessingStatus.Failed)
+                {
+                    throw new VirtuousGiftProcessingStateException(
+                        giftId,
+                        existingRecord.Status);
+                }
+
+                if (string.IsNullOrWhiteSpace(
+                        existingRecord.GiftFingerprint)
+                    || !string.Equals(
+                        existingRecord.GiftFingerprint,
+                        giftFingerprint,
+                        StringComparison.Ordinal))
+                {
+                    throw new VirtuousGiftFingerprintMismatchException(
+                        giftId);
+                }
+
+                var attemptId =
+                    Guid.NewGuid();
+
+                var now =
+                    DateTime.UtcNow;
+
+                await using var command =
+                    connection.CreateCommand();
+
+                command.Transaction =
+                    transaction;
+
+                command.CommandText =
+                    """
+                    UPDATE virtuous_gift_processing
+                    SET
+                        attempt_id = @attemptId,
+                        status = 'Processing',
+                        aplos_transaction_id = NULL,
+                        aplos_response = NULL,
+                        attempt_count = attempt_count + 1,
+                        last_attempt_utc = @lastAttemptUtc,
+                        completed_utc = NULL,
+                        failure_message = NULL
+                    WHERE
+                        gift_id = @giftId
+                        AND status = 'Failed'
+                    RETURNING
+                        gift_id,
+                        gift_fingerprint,
+                        attempt_id,
+                        status,
+                        aplos_transaction_id,
+                        aplos_response,
+                        attempt_count,
+                        created_utc,
+                        last_attempt_utc,
+                        completed_utc,
+                        failure_message;
+                    """;
+
+                command.Parameters.AddWithValue(
+                    "giftId",
+                    giftId);
+
+                command.Parameters.AddWithValue(
+                    "attemptId",
+                    attemptId);
+
+                command.Parameters.AddWithValue(
+                    "lastAttemptUtc",
+                    now);
+
+                await using var reader =
+                    await command.ExecuteReaderAsync(
+                        cancellationToken);
+
+                if (!await reader.ReadAsync(
+                        cancellationToken))
+                {
+                    throw new InvalidOperationException(
+                        "The failed gift could not be claimed for retry.");
+                }
+
+                var record =
+                    ReadRecord(reader);
+
+                await reader.DisposeAsync();
+
+                await transaction.CommitAsync(
+                    cancellationToken);
+
+                return new VirtuousGiftProcessingClaim
+                {
+                    Record = record,
+                    ShouldProcess = true
+                };
+            }
+            catch
+            {
+                await transaction.RollbackAsync(
+                    CancellationToken.None);
+
+                throw;
+            }
+        }
 
     public async Task<VirtuousGiftProcessingRecord> CompleteAsync(
         long giftId,
@@ -161,6 +340,7 @@ public sealed class PostgresVirtuousGiftProcessingLedger
                 AND status = 'Processing'
             RETURNING
                 gift_id,
+                gift_fingerprint,
                 attempt_id,
                 status,
                 aplos_transaction_id,
@@ -261,6 +441,7 @@ public sealed class PostgresVirtuousGiftProcessingLedger
                 AND status = 'Processing'
             RETURNING
                 gift_id,
+                gift_fingerprint,
                 attempt_id,
                 status,
                 aplos_transaction_id,
@@ -353,6 +534,7 @@ public sealed class PostgresVirtuousGiftProcessingLedger
                 AND status = 'Processing'
             RETURNING
                 gift_id,
+                gift_fingerprint,
                 attempt_id,
                 status,
                 aplos_transaction_id,
@@ -408,6 +590,7 @@ public sealed class PostgresVirtuousGiftProcessingLedger
             CREATE TABLE IF NOT EXISTS virtuous_gift_processing
             (
                 gift_id BIGINT NOT NULL PRIMARY KEY,
+                gift_fingerprint TEXT NULL,
                 attempt_id UUID NOT NULL,
                 status TEXT NOT NULL,
                 aplos_transaction_id BIGINT NULL,
@@ -435,6 +618,10 @@ public sealed class PostgresVirtuousGiftProcessingLedger
                         OR aplos_transaction_id > 0
                     )
             );
+
+            ALTER TABLE virtuous_gift_processing
+                ADD COLUMN IF NOT EXISTS gift_fingerprint TEXT NULL;
+
             """;
 
         await command.ExecuteNonQueryAsync(
@@ -482,6 +669,7 @@ public sealed class PostgresVirtuousGiftProcessingLedger
             """
             SELECT
                 gift_id,
+                gift_fingerprint,
                 attempt_id,
                 status,
                 aplos_transaction_id,
@@ -512,12 +700,14 @@ public sealed class PostgresVirtuousGiftProcessingLedger
         return ReadRecord(reader);
     }
 
-    private static async Task<VirtuousGiftProcessingClaim>
-        CreateProcessingRecordAsync(
-            NpgsqlConnection connection,
-            NpgsqlTransaction transaction,
-            long giftId,
-            CancellationToken cancellationToken)
+        private static async Task<VirtuousGiftProcessingClaim>
+            CreateProcessingRecordAsync(
+                NpgsqlConnection connection,
+                NpgsqlTransaction transaction,
+                long giftId,
+                string giftFingerprint,
+                CancellationToken cancellationToken)
+
     {
         var attemptId =
             Guid.NewGuid();
@@ -536,6 +726,7 @@ public sealed class PostgresVirtuousGiftProcessingLedger
             INSERT INTO virtuous_gift_processing
             (
                 gift_id,
+                gift_fingerprint,
                 attempt_id,
                 status,
                 attempt_count,
@@ -545,6 +736,7 @@ public sealed class PostgresVirtuousGiftProcessingLedger
             VALUES
             (
                 @giftId,
+                @giftFingerprint,
                 @attemptId,
                 'Processing',
                 1,
@@ -556,6 +748,10 @@ public sealed class PostgresVirtuousGiftProcessingLedger
         command.Parameters.AddWithValue(
             "giftId",
             giftId);
+
+        command.Parameters.AddWithValue(
+            "giftFingerprint",
+            giftFingerprint);
 
         command.Parameters.AddWithValue(
             "attemptId",
@@ -578,6 +774,7 @@ public sealed class PostgresVirtuousGiftProcessingLedger
                 new VirtuousGiftProcessingRecord
                 {
                     GiftId = giftId,
+                    GiftFingerprint = giftFingerprint,
                     AttemptId = attemptId,
                     Status =
                         VirtuousGiftProcessingStatus.Processing,
@@ -590,50 +787,55 @@ public sealed class PostgresVirtuousGiftProcessingLedger
     }
 
        private static VirtuousGiftProcessingRecord ReadRecord(
-        NpgsqlDataReader reader)
+    NpgsqlDataReader reader)
+{
+    return new VirtuousGiftProcessingRecord
     {
-        return new VirtuousGiftProcessingRecord
-        {
-            GiftId =
-                reader.GetInt64(0),
+        GiftId =
+            reader.GetInt64(0),
 
-            AttemptId =
-                reader.GetGuid(1),
+        GiftFingerprint =
+            reader.IsDBNull(1)
+                ? null
+                : reader.GetString(1),
 
-            Status =
-                Enum.Parse<VirtuousGiftProcessingStatus>(
-                    reader.GetString(2)),
+        AttemptId =
+            reader.GetGuid(2),
 
-            AplosTransactionId =
-                reader.IsDBNull(3)
-                    ? null
-                    : reader.GetInt64(3),
+        Status =
+            Enum.Parse<VirtuousGiftProcessingStatus>(
+                reader.GetString(3)),
 
-            AplosResponse =
-                reader.IsDBNull(4)
-                    ? null
-                    : reader.GetString(4),
+        AplosTransactionId =
+            reader.IsDBNull(4)
+                ? null
+                : reader.GetInt64(4),
 
-            AttemptCount =
-                reader.GetInt32(5),
+        AplosResponse =
+            reader.IsDBNull(5)
+                ? null
+                : reader.GetString(5),
 
-            CreatedUtc =
-                reader.GetDateTime(6),
+        AttemptCount =
+            reader.GetInt32(6),
 
-            LastAttemptUtc =
-                reader.IsDBNull(7)
-                    ? null
-                    : reader.GetDateTime(7),
+        CreatedUtc =
+            reader.GetDateTime(7),
 
-            CompletedUtc =
-                reader.IsDBNull(8)
-                    ? null
-                    : reader.GetDateTime(8),
+        LastAttemptUtc =
+            reader.IsDBNull(8)
+                ? null
+                : reader.GetDateTime(8),
 
-            FailureMessage =
-                reader.IsDBNull(9)
-                    ? null
-                    : reader.GetString(9)
-        };
-    }
+        CompletedUtc =
+            reader.IsDBNull(9)
+                ? null
+                : reader.GetDateTime(9),
+
+        FailureMessage =
+            reader.IsDBNull(10)
+                ? null
+                : reader.GetString(10)
+    };
+}
 }
