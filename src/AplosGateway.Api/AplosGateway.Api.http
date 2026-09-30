@@ -1,5 +1,0 @@
-@AplosGateway.Api_HostAddress = http://localhost:5131
-
-Accept: application/json
-
-###

@@ -1,11 +1,11 @@
-# AplosGateway
+# VirtuousGateway
 
-AplosGateway is a .NET 8 API that provides a secure integration layer between
+VirtuousGateway is a .NET 8 API that provides a secure integration layer between
 Virtuous/Make and the Aplos API.
 
 ## Configuration
 
-AplosGateway uses standard ASP.NET Core configuration. Environment variables
+VirtuousGateway uses standard ASP.NET Core configuration. Environment variables
 override values in `appsettings.json`.
 
 Nested configuration keys use double underscores (`__`) in environment
@@ -18,13 +18,13 @@ Do not commit their values to source control.
 
 | Environment variable | Purpose |
 | --- | --- |
-| `Security__ApiKey` | Bearer API key required for protected AplosGateway endpoints |
+| `Security__ApiKey` | Bearer API key required for protected VirtuousGateway endpoints |
 | `Aplos__ClientId` | Aplos API client identifier |
 | `Aplos__PrivateKey` | Base64 PKCS#8 private key used to decrypt Aplos access tokens |
 
 ### Transaction posting safety switch
 
-`Aplos__AllowTransactionPosting` controls whether AplosGateway may create
+`Aplos__AllowTransactionPosting` controls whether VirtuousGateway may create
 transactions in Aplos.
 
 Production deployments should initially use:
@@ -57,7 +57,7 @@ on customer-specific defaults in source control.
 
 ## Per-customer deployment
 
-AplosGateway uses one application image with isolated runtime configuration for
+VirtuousGateway uses one application image with isolated runtime configuration for
 each customer. Customer-specific credentials, Virtuous organization IDs,
 transaction mappings, and PostgreSQL connection strings must not be built into
 the image or committed to source control.
@@ -136,7 +136,7 @@ rather than a normal readiness failure.
 
 ## Runtime data
 
-AplosGateway uses PostgreSQL as a durable Virtuous gift processing ledger.
+VirtuousGateway uses PostgreSQL as a durable Virtuous gift processing ledger.
 
 Configure the PostgreSQL connection through the deployment environment:
 

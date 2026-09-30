@@ -2,17 +2,17 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-COPY ["AplosGateway.sln", "./"]
-COPY ["src/AplosGateway.Api/AplosGateway.Api.csproj", "src/AplosGateway.Api/"]
-COPY ["src/AplosGateway.Core/AplosGateway.Core.csproj", "src/AplosGateway.Core/"]
-COPY ["src/AplosGateway.Infrastructure/AplosGateway.Infrastructure.csproj", "src/AplosGateway.Infrastructure/"]
-COPY ["tests/AplosGateway.Tests/AplosGateway.Tests.csproj", "tests/AplosGateway.Tests/"]
+COPY ["VirtuousGateway.sln", "./"]
+COPY ["src/VirtuousGateway.Api/VirtuousGateway.Api.csproj", "src/VirtuousGateway.Api/"]
+COPY ["src/VirtuousGateway.Core/VirtuousGateway.Core.csproj", "src/VirtuousGateway.Core/"]
+COPY ["src/VirtuousGateway.Infrastructure/VirtuousGateway.Infrastructure.csproj", "src/VirtuousGateway.Infrastructure/"]
+COPY ["tests/VirtuousGateway.Tests/VirtuousGateway.Tests.csproj", "tests/VirtuousGateway.Tests/"]
 
-RUN dotnet restore "AplosGateway.sln"
+RUN dotnet restore "VirtuousGateway.sln"
 
 COPY . .
 
-RUN dotnet publish "src/AplosGateway.Api/AplosGateway.Api.csproj" \
+RUN dotnet publish "src/VirtuousGateway.Api/VirtuousGateway.Api.csproj" \
     -c Release \
     -o /app/publish \
     --no-restore \
@@ -31,4 +31,4 @@ EXPOSE 8080
 
 USER app
 
-ENTRYPOINT ["dotnet", "AplosGateway.Api.dll"]
+ENTRYPOINT ["dotnet", "VirtuousGateway.Api.dll"]

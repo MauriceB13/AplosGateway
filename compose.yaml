@@ -1,3 +1,5 @@
+name: virtuousgateway
+
 services:
   gateway:
     build:
@@ -13,7 +15,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_HTTP_PORTS: 8080
 
-      Gateway__Name: "${Gateway__Name:-AplosGateway}"
+      Gateway__Name: "${Gateway__Name:-VirtuousGateway}"
 
       Security__ApiKey: "${Security__ApiKey:?Security__ApiKey is required}"
 
